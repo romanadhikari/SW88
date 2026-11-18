@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthPage } from './components/AuthPage';
+import { DownloadPage } from './components/DownloadPage';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { UserPortal, type UserTab } from './components/UserPortal';
 import { BubbleRocketX } from './games/BubbleRocketX';
@@ -9,7 +10,13 @@ import { ThreePattiRoyale } from './games/ThreePattiRoyale';
 import { apiFetch, getStoredToken, onBannedEvent, setStoredToken } from './lib/api';
 import type { BannedPayload, GameInfo, MaintenanceState, NotificationItem, User, Wallet } from './types';
 
+function isDownloadPath(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.replace(/\/+$/, '') === '/download';
+}
+
 export default function App() {
+  const [downloadRoute, setDownloadRoute] = useState<boolean>(() => isDownloadPath());
   const [booting, setBooting] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -26,6 +33,22 @@ export default function App() {
   const [liveSkyline, setLiveSkyline] = useState<SkylinePublicState | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    const onPop = () => setDownloadRoute(isDownloadPath());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const navigateHomeFromDownload = useCallback(() => {
+    try {
+      window.history.pushState({}, '', '/');
+    } catch {
+      window.location.href = '/';
+      return;
+    }
+    setDownloadRoute(false);
+  }, []);
 
   const clearSession = useCallback(() => {
     setStoredToken(null);
@@ -188,6 +211,10 @@ export default function App() {
   };
 
   const renderContent = () => {
+    if (downloadRoute) {
+      return <DownloadPage onOpenApp={navigateHomeFromDownload} />;
+    }
+
     if (booting) {
       return (
         <div className="min-h-dvh bg-[#0B0D11] text-[#F5F7FA] flex flex-col items-center justify-center gap-3 px-4 text-center">

@@ -7,9 +7,10 @@ const DATA_DIR = path.resolve(process.cwd(), 'data');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 export const QR_UPLOAD_DIR = path.join(UPLOAD_DIR, 'qr');
 export const SCREENSHOT_UPLOAD_DIR = path.join(UPLOAD_DIR, 'screenshots');
+export const APK_UPLOAD_DIR = path.join(UPLOAD_DIR, 'apk');
 export const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
-for (const dir of [DATA_DIR, UPLOAD_DIR, QR_UPLOAD_DIR, SCREENSHOT_UPLOAD_DIR, BACKUP_DIR]) {
+for (const dir of [DATA_DIR, UPLOAD_DIR, QR_UPLOAD_DIR, SCREENSHOT_UPLOAD_DIR, APK_UPLOAD_DIR, BACKUP_DIR]) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -302,6 +303,10 @@ export function initDatabase() {
       'SW88 is currently undergoing scheduled maintenance. All user accounts, wallet balances, and transaction histories remain completely safe. Please check back shortly.',
     ],
     ['legal_notice', 'SW88 operates strictly for verified 18+ eligible participants in accordance with local compliance and responsible gaming rules.'],
+    ['app_download_mode', 'pwa'],
+    ['app_apk_filename', ''],
+    ['app_apk_external_url', ''],
+    ['app_apk_version', '1.0.0'],
   ];
   const insertSetting = db.prepare(`INSERT OR IGNORE INTO platform_settings (key, value) VALUES (?, ?)`);
   for (const [k, v] of defaultSettings) {
@@ -441,6 +446,98 @@ export function getMaintenanceState(): { enabled: boolean; message: string } {
     };
   } catch {
     return { enabled: false, message: '' };
+  }
+}
+
+export interface AppDownloadConfig {
+  mode: 'pwa' | 'uploaded' | 'external';
+  hasApk: boolean;
+  apkDownloadUrl: string | null;
+  apkFilename: string | null;
+  apkSizeBytes: number;
+  externalUrl: string;
+  version: string;
+  updatedAt: string | null;
+}
+
+export function getAppDownloadConfig(): AppDownloadConfig {
+  try {
+    const rows = db
+      .prepare(
+        `SELECT key, value, updated_at FROM platform_settings WHERE key IN ('app_download_mode', 'app_apk_filename', 'app_apk_external_url', 'app_apk_version')`
+      )
+      .all() as Array<{ key: string; value: string; updated_at: string }>;
+    const map: Record<string, { value: string; updatedAt: string }> = {};
+    for (const r of rows) {
+      map[r.key] = { value: r.value, updatedAt: r.updated_at };
+    }
+    const rawMode = map.app_download_mode?.value || 'pwa';
+    const mode: 'pwa' | 'uploaded' | 'external' =
+      rawMode === 'uploaded' || rawMode === 'external' ? rawMode : 'pwa';
+    const filename = map.app_apk_filename?.value ? path.basename(map.app_apk_filename.value) : '';
+    const externalUrl = (map.app_apk_external_url?.value || '').trim();
+    const version = (map.app_apk_version?.value || '1.0.0').trim() || '1.0.0';
+
+    let apkExists = false;
+    let apkSizeBytes = 0;
+    if (filename) {
+      const fullPath = path.join(APK_UPLOAD_DIR, filename);
+      if (fs.existsSync(fullPath)) {
+        const st = fs.statSync(fullPath);
+        if (st.isFile() && st.size > 0) {
+          apkExists = true;
+          apkSizeBytes = st.size;
+        }
+      }
+    }
+
+    if (mode === 'uploaded' && apkExists) {
+      return {
+        mode: 'uploaded',
+        hasApk: true,
+        apkDownloadUrl: `/api/app/apk?v=${encodeURIComponent(map.app_apk_filename?.updatedAt || version)}`,
+        apkFilename: filename,
+        apkSizeBytes,
+        externalUrl,
+        version,
+        updatedAt: map.app_apk_filename?.updatedAt || null,
+      };
+    }
+
+    if (mode === 'external' && /^https?:\/\/.+/i.test(externalUrl)) {
+      return {
+        mode: 'external',
+        hasApk: true,
+        apkDownloadUrl: externalUrl,
+        apkFilename: null,
+        apkSizeBytes: 0,
+        externalUrl,
+        version,
+        updatedAt: map.app_apk_external_url?.updatedAt || null,
+      };
+    }
+
+    return {
+      mode: 'pwa',
+      hasApk: false,
+      apkDownloadUrl: null,
+      apkFilename: apkExists ? filename : null,
+      apkSizeBytes,
+      externalUrl,
+      version,
+      updatedAt: map.app_download_mode?.updatedAt || null,
+    };
+  } catch {
+    return {
+      mode: 'pwa',
+      hasApk: false,
+      apkDownloadUrl: null,
+      apkFilename: null,
+      apkSizeBytes: 0,
+      externalUrl: '',
+      version: '1.0.0',
+      updatedAt: null,
+    };
   }
 }
 

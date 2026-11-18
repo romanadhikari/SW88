@@ -5,7 +5,9 @@ import {
   ArrowRightLeft,
   Ban,
   BarChart3,
+  Check,
   CheckCircle2,
+  Copy,
   CreditCard,
   Database,
   Download,
@@ -13,6 +15,7 @@ import {
   FileText,
   Gamepad2,
   LayoutDashboard,
+  Link2,
   Lock,
   LogOut,
   Menu,
@@ -24,6 +27,8 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Smartphone,
+  Trash2,
   TrendingUp,
   Upload,
   Users,
@@ -32,6 +37,7 @@ import {
 } from 'lucide-react';
 import {
   apiFetch,
+  copyToClipboard,
   formatNpr,
   formatNstDateShort,
   formatNstDateTime,
@@ -215,6 +221,15 @@ export function AdminDashboard({ user, liveTickVersion, onUserUpdate, onLogout }
   const [maintMessage, setMaintMessage] = useState('');
   const [maintBusy, setMaintBusy] = useState(false);
 
+  // Mobile App Distribution & Special Link state
+  const [appDistConfig, setAppDistConfig] = useState<any>(null);
+  const [appMode, setAppMode] = useState<'pwa' | 'uploaded' | 'external'>('pwa');
+  const [appExternalUrl, setAppExternalUrl] = useState('');
+  const [appVersion, setAppVersion] = useState('1.0.0');
+  const [apkFile, setApkFile] = useState<File | null>(null);
+  const [appDistBusy, setAppDistBusy] = useState(false);
+  const [copiedDownloadUrl, setCopiedDownloadUrl] = useState(false);
+
   // Admin Security Credentials Form
   const [secUsername, setSecUsername] = useState(user.username);
   const [secCurrentPassword, setSecCurrentPassword] = useState('');
@@ -332,14 +347,19 @@ export function AdminDashboard({ user, liveTickVersion, onUserUpdate, onLogout }
         const data = await apiFetch<{ logs: any[] }>('/api/admin/audit-logs');
         setAuditLogs(data.logs || []);
       } else if (section === 'settings') {
-        const [setData, healthData] = await Promise.all([
+        const [setData, healthData, distData] = await Promise.all([
           apiFetch<{ settings: Record<string, string> }>('/api/admin/settings'),
           apiFetch<any>('/api/admin/system/health'),
+          apiFetch<any>('/api/app/download-info'),
         ]);
         setSettingsMap(setData.settings || {});
         setSysHealth(healthData);
         setMaintEnabled(Boolean(healthData?.maintenance?.enabled));
         setMaintMessage(healthData?.maintenance?.message || '');
+        setAppDistConfig(distData);
+        setAppMode(distData?.mode || 'pwa');
+        setAppExternalUrl(distData?.externalUrl || '');
+        setAppVersion(distData?.version || '1.0.0');
       }
     } catch (err: any) {
       flash('err', err?.message || 'Could not load admin section');
@@ -621,6 +641,82 @@ export function AdminDashboard({ user, liveTickVersion, onUserUpdate, onLogout }
     }
   };
 
+  const specialDownloadUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/download` : '/download';
+
+  const handleCopySpecialDownloadUrl = async () => {
+    const ok = await copyToClipboard(specialDownloadUrl);
+    if (ok) {
+      setCopiedDownloadUrl(true);
+      flash('ok', `Special app download link copied: ${specialDownloadUrl}`);
+      window.setTimeout(() => setCopiedDownloadUrl(false), 2400);
+    }
+  };
+
+  const handleSaveAppDistConfig = async (e: FormEvent) => {
+    e.preventDefault();
+    setAppDistBusy(true);
+    try {
+      const res = await apiFetch<{ ok: boolean; config: any }>('/api/admin/app/config', {
+        method: 'POST',
+        body: JSON.stringify({
+          mode: appMode,
+          externalUrl: appExternalUrl.trim(),
+          version: appVersion.trim() || '1.0.0',
+        }),
+      });
+      setAppDistConfig(res.config);
+      setAppMode(res.config.mode);
+      flash('ok', 'Mobile app download settings updated.');
+    } catch (err: any) {
+      flash('err', err?.message || 'Failed to update app distribution settings.');
+    } finally {
+      setAppDistBusy(false);
+    }
+  };
+
+  const handleUploadApk = async () => {
+    if (!apkFile) {
+      flash('err', 'Please select a .apk file first.');
+      return;
+    }
+    setAppDistBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('apk', apkFile);
+      fd.append('version', appVersion.trim() || '1.0.0');
+      const res = await apiFetch<{ ok: boolean; config: any }>('/api/admin/app/apk', {
+        method: 'POST',
+        body: fd,
+        isFormData: true,
+      });
+      setAppDistConfig(res.config);
+      setAppMode(res.config.mode);
+      setApkFile(null);
+      flash('ok', `SW88 APK v${res.config.version} uploaded and set as live download!`);
+    } catch (err: any) {
+      flash('err', err?.message || 'APK upload failed.');
+    } finally {
+      setAppDistBusy(false);
+    }
+  };
+
+  const handleDeleteApk = async () => {
+    setAppDistBusy(true);
+    try {
+      const res = await apiFetch<{ ok: boolean; config: any }>('/api/admin/app/apk', {
+        method: 'DELETE',
+      });
+      setAppDistConfig(res.config);
+      setAppMode('pwa');
+      flash('ok', 'Uploaded APK removed. Switched to 1-Tap Auto-Setup Web App mode.');
+    } catch (err: any) {
+      flash('err', err?.message || 'Failed to remove APK.');
+    } finally {
+      setAppDistBusy(false);
+    }
+  };
+
   const handleExportReportCsv = () => {
     if (!reportData) return;
     const rows: string[][] = [
@@ -778,6 +874,16 @@ export function AdminDashboard({ user, liveTickVersion, onUserUpdate, onLogout }
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopySpecialDownloadUrl}
+              className="min-h-[38px] px-2.5 sm:px-3 rounded-xl bg-[#E6B84F]/15 border border-[#E6B84F]/35 text-[#E6B84F] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+              title="Copy Special App Download Link"
+            >
+              {copiedDownloadUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Download className="w-3.5 h-3.5" />}
+              <span className="hidden md:inline">{copiedDownloadUrl ? 'Link Copied' : 'App Download Link'}</span>
+            </button>
+
             <div className="rounded-xl bg-[#14171F] border border-white/10 px-2.5 sm:px-3 py-1.5 text-right leading-tight">
               <div className="font-mono-nums font-bold text-[11px] sm:text-xs text-[#E6B84F]">{nstClock.time} NST</div>
               <div className="text-[10px] text-[#9CA3AF] hidden sm:block">{nstClock.date} · UTC+05:45</div>
@@ -2417,9 +2523,137 @@ export function AdminDashboard({ user, liveTickVersion, onUserUpdate, onLogout }
                 </section>
               )}
 
+              {/* Mobile App Distribution & Special Download Link */}
+              <section className="rounded-2xl bg-[#14171F] border border-[#E6B84F]/30 p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-display font-bold text-lg flex items-center gap-2">
+                      <Smartphone className="w-5 h-5 text-[#E6B84F]" />
+                      <span>Mobile App Download Link &amp; APK Distribution</span>
+                    </h2>
+                    <p className="text-xs text-[#9CA3AF] mt-0.5">
+                      Share your dedicated download-only page link or optionally upload an Android .apk installer.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopySpecialDownloadUrl}
+                    className="min-h-[40px] px-4 rounded-xl bg-[#E6B84F] text-[#0B0D11] font-extrabold text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {copiedDownloadUrl ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedDownloadUrl ? 'Special Link Copied' : 'Copy Special /download Link'}</span>
+                  </button>
+                </div>
+
+                <div className="rounded-xl bg-[#0B0D11] border border-white/10 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="font-mono-nums text-[#E6B84F] break-all select-all">{specialDownloadUrl}</span>
+                  <a
+                    href="/download"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-[#F5F7FA] hover:text-[#E6B84F] underline shrink-0"
+                  >
+                    Open /download Page
+                  </a>
+                </div>
+
+                <form onSubmit={handleSaveAppDistConfig} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#9CA3AF] mb-1">Distribution Mode</label>
+                      <select
+                        value={appMode}
+                        onChange={(e) => setAppMode(e.target.value as 'pwa' | 'uploaded' | 'external')}
+                        className="w-full min-h-[42px] px-3 rounded-xl bg-[#0B0D11] border border-white/10 text-sm text-[#F5F7FA]"
+                      >
+                        <option value="pwa">1-Tap Auto Web App Installer (Default)</option>
+                        <option value="uploaded">Uploaded Android APK File</option>
+                        <option value="external">External APK Download Link</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#9CA3AF] mb-1">App Version Label</label>
+                      <input
+                        type="text"
+                        value={appVersion}
+                        onChange={(e) => setAppVersion(e.target.value)}
+                        placeholder="1.0.0"
+                        className="w-full min-h-[42px] px-3 rounded-xl bg-[#0B0D11] border border-white/10 font-mono-nums text-sm text-[#F5F7FA]"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="submit"
+                        disabled={appDistBusy}
+                        className="w-full min-h-[42px] px-4 rounded-xl bg-[#0B0D11] border border-white/15 hover:border-[#E6B84F]/60 text-xs font-bold text-[#F5F7FA] cursor-pointer disabled:opacity-40"
+                      >
+                        {appDistBusy ? 'Saving...' : 'Save Distribution Mode'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {appMode === 'external' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-[#9CA3AF] mb-1 flex items-center gap-1.5">
+                        <Link2 className="w-3.5 h-3.5 text-[#E6B84F]" />
+                        <span>Direct External .apk URL</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={appExternalUrl}
+                        onChange={(e) => setAppExternalUrl(e.target.value)}
+                        placeholder="https://example.com/SW88-App.apk"
+                        className="w-full min-h-[42px] px-3 rounded-xl bg-[#0B0D11] border border-white/10 text-sm text-[#F5F7FA]"
+                      />
+                    </div>
+                  )}
+                </form>
+
+                <div className="rounded-xl bg-[#0B0D11] border border-white/10 p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="font-bold text-[#F5F7FA]">Optional Android APK File Upload (Max 100 MB)</span>
+                    {appDistConfig?.apkFilename && (
+                      <span className="font-mono-nums text-emerald-400">
+                        Active file: {appDistConfig.apkFilename} ({Math.max(1, Math.round((appDistConfig.apkSizeBytes || 0) / 1024))} KB)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <input
+                      type="file"
+                      accept=".apk,application/vnd.android.package-archive"
+                      onChange={(e) => setApkFile(e.target.files?.[0] || null)}
+                      className="text-xs text-[#9CA3AF] file:mr-3 file:py-2 file:px-3.5 file:rounded-lg file:border file:border-white/15 file:bg-[#14171F] file:text-[#F5F7FA] file:font-semibold file:cursor-pointer"
+                    />
+                    <button
+                      type="button"
+                      disabled={appDistBusy || !apkFile}
+                      onClick={handleUploadApk}
+                      className="min-h-[40px] px-4 rounded-xl bg-[#E6B84F] text-[#0B0D11] font-extrabold text-xs inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload &amp; Publish .apk</span>
+                    </button>
+                    {appDistConfig?.apkFilename && (
+                      <button
+                        type="button"
+                        disabled={appDistBusy}
+                        onClick={handleDeleteApk}
+                        className="min-h-[40px] px-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove APK</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </section>
+
               <form onSubmit={handleSaveSettings} className="rounded-2xl bg-[#14171F] border border-white/10 p-5 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {Object.entries(settingsMap).map(([key, val]) => (
+                  {Object.entries(settingsMap)
+                    .filter(([key]) => !key.startsWith('app_'))
+                    .map(([key, val]) => (
                     <div key={key}>
                       <label className="block text-xs font-semibold text-[#9CA3AF] mb-1">{key}</label>
                       <input

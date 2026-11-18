@@ -3,8 +3,10 @@ import path from 'path';
 import multer from 'multer';
 import { Router, type Response } from 'express';
 import {
+  APK_UPLOAD_DIR,
   createDatabaseBackup,
   db,
+  getAppDownloadConfig,
   getMaintenanceState,
   listDatabaseBackups,
   QR_UPLOAD_DIR,
@@ -35,6 +37,31 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
 });
+
+const apkStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, APK_UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase() === '.apk' ? '.apk' : '.bin';
+    cb(null, `sw88-app-${Date.now()}${ext}`);
+  },
+});
+
+const apkUpload = multer({
+  storage: apkStorage,
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
+
+function isValidApkFile(filePath: string): boolean {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(4);
+    const bytesRead = fs.readSync(fd, buf, 0, 4, 0);
+    fs.closeSync(fd);
+    return bytesRead === 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04;
+  } catch {
+    return false;
+  }
+}
 
 export function startScreenshotCleanupJob() {
   const sweep = () => {
@@ -113,6 +140,26 @@ apiRouter.get('/system/status', (_req, res: Response) => {
     platformName: nameRow?.value || 'SW88',
     maintenance: maint,
   });
+});
+
+apiRouter.get('/app/download-info', (_req, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.json(getAppDownloadConfig());
+});
+
+apiRouter.get('/app/apk', (_req, res: Response) => {
+  const cfg = getAppDownloadConfig();
+  if (cfg.mode !== 'uploaded' || !cfg.apkFilename) {
+    return res.status(404).json({ error: 'No APK package is currently published.' });
+  }
+  const filePath = path.join(APK_UPLOAD_DIR, path.basename(cfg.apkFilename));
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'APK file not found.' });
+  }
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="SW88-App.apk"');
+  res.setHeader('Cache-Control', 'no-store');
+  return res.sendFile(filePath);
 });
 
 apiRouter.get('/games', requireAuth, (_req: AuthedRequest, res: Response) => {
@@ -1785,4 +1832,132 @@ apiRouter.post('/admin/backup', requireAuth, requireAdmin, async (req: AuthedReq
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Backup failed.' });
   }
+});
+
+apiRouter.post('/admin/app/apk', requireAuth, requireAdmin, apkUpload.single('apk'), (req: AuthedRequest, res: Response) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Please select a valid Android .apk file to upload.' });
+  }
+  const uploadedPath = req.file.path;
+  const origExt = path.extname(req.file.originalname || '').toLowerCase();
+  if (origExt !== '.apk' || !isValidApkFile(uploadedPath)) {
+    try {
+      if (fs.existsSync(uploadedPath)) fs.unlinkSync(uploadedPath);
+    } catch {
+      // ignore cleanup
+    }
+    return res.status(400).json({ error: 'Invalid file. Only authentic signed Android .apk packages are accepted.' });
+  }
+
+  const version = String(req.body?.version || '1.0.0').trim().slice(0, 32) || '1.0.0';
+  const prevRow = db.prepare(`SELECT value FROM platform_settings WHERE key = 'app_apk_filename'`).get() as
+    | { value: string }
+    | undefined;
+  if (prevRow?.value && prevRow.value !== path.basename(uploadedPath)) {
+    const prevPath = path.join(APK_UPLOAD_DIR, path.basename(prevRow.value));
+    if (fs.existsSync(prevPath)) {
+      try {
+        fs.unlinkSync(prevPath);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const upsert = db.prepare(`
+    INSERT INTO platform_settings (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `);
+  const nextFilename = path.basename(uploadedPath);
+  upsert.run('app_download_mode', 'uploaded');
+  upsert.run('app_apk_filename', nextFilename);
+  upsert.run('app_apk_version', version);
+
+  logAdminAudit({
+    adminId: req.user!.id,
+    adminUid: req.user!.uid,
+    action: 'APP_APK_UPLOADED',
+    affectedRecord: nextFilename,
+    reason: `Published SW88 APK v${version}`,
+  });
+
+  const config = getAppDownloadConfig();
+  broadcastAll('app:download-updated', config);
+  return res.json({ ok: true, config });
+});
+
+apiRouter.post('/admin/app/config', requireAuth, requireAdmin, (req: AuthedRequest, res: Response) => {
+  const modeRaw = String(req.body?.mode || 'pwa').trim().toLowerCase();
+  const mode: 'pwa' | 'uploaded' | 'external' =
+    modeRaw === 'uploaded' || modeRaw === 'external' ? modeRaw : 'pwa';
+  const externalUrl = String(req.body?.externalUrl || '').trim();
+  const version = String(req.body?.version || '1.0.0').trim().slice(0, 32) || '1.0.0';
+
+  if (mode === 'external' && !/^https?:\/\/.+/i.test(externalUrl)) {
+    return res.status(400).json({ error: 'Please enter a valid http:// or https:// APK download link.' });
+  }
+  if (mode === 'uploaded') {
+    const current = getAppDownloadConfig();
+    if (!current.apkFilename) {
+      return res.status(400).json({ error: 'Please upload an .apk file first before selecting Uploaded APK mode.' });
+    }
+  }
+
+  const upsert = db.prepare(`
+    INSERT INTO platform_settings (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `);
+  upsert.run('app_download_mode', mode);
+  upsert.run('app_apk_external_url', externalUrl);
+  upsert.run('app_apk_version', version);
+
+  logAdminAudit({
+    adminId: req.user!.id,
+    adminUid: req.user!.uid,
+    action: 'APP_DOWNLOAD_CONFIG_UPDATED',
+    affectedRecord: 'platform_settings.app_download_mode',
+    reason: `Set app distribution mode to ${mode}`,
+    details: { mode, externalUrl, version },
+  });
+
+  const config = getAppDownloadConfig();
+  broadcastAll('app:download-updated', config);
+  return res.json({ ok: true, config });
+});
+
+apiRouter.delete('/admin/app/apk', requireAuth, requireAdmin, (req: AuthedRequest, res: Response) => {
+  const prevRow = db.prepare(`SELECT value FROM platform_settings WHERE key = 'app_apk_filename'`).get() as
+    | { value: string }
+    | undefined;
+  if (prevRow?.value) {
+    const prevPath = path.join(APK_UPLOAD_DIR, path.basename(prevRow.value));
+    if (fs.existsSync(prevPath)) {
+      try {
+        fs.unlinkSync(prevPath);
+      } catch {
+        // ignore
+      }
+    }
+  }
+  const upsert = db.prepare(`
+    INSERT INTO platform_settings (key, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `);
+  upsert.run('app_apk_filename', '');
+  upsert.run('app_download_mode', 'pwa');
+
+  logAdminAudit({
+    adminId: req.user!.id,
+    adminUid: req.user!.uid,
+    action: 'APP_APK_REMOVED',
+    affectedRecord: 'platform_settings.app_apk_filename',
+    reason: 'Switched back to 1-Tap Web App Auto-Installer',
+  });
+
+  const config = getAppDownloadConfig();
+  broadcastAll('app:download-updated', config);
+  return res.json({ ok: true, config });
 });

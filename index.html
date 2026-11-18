@@ -19,6 +19,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+Devanagari:wght@600;800&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;700;800&display=swap" rel="stylesheet" />
+    <script>
+      window.__sw88DeferredPrompt = null;
+      window.__sw88Installed = false;
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__sw88DeferredPrompt = e;
+        window.dispatchEvent(new CustomEvent('sw88:install-prompt-ready'));
+      });
+      window.addEventListener('appinstalled', function () {
+        window.__sw88Installed = true;
+        window.__sw88DeferredPrompt = null;
+        window.dispatchEvent(new CustomEvent('sw88:app-installed'));
+      });
+    </script>
   </head>
   <body class="bg-[#0B0D11] text-[#F5F7FA] antialiased selection:bg-[#E6B84F]/30 selection:text-[#F5F7FA]">
     <div id="root"></div>
