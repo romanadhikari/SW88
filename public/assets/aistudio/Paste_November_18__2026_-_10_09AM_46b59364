@@ -1,0 +1,1575 @@
+# SW88 — COMPLETE GAMING PLATFORM MASTER BUILD PROMPT
+
+## PROJECT OBJECTIVE
+
+Build a complete, professional, responsive gaming platform named **SW88** with two connected interfaces:
+
+1. User Website
+2. Admin Dashboard
+
+This must be a fully functional application connected to a persistent backend and database.
+
+Do not create a static demo website. Every authentication feature, wallet operation, game transaction, deposit, transfer, withdrawal, notification, and administrative action must work through the backend.
+
+Use the existing project and its existing database if one is already available. If starting from a clean project, create the architecture described below.
+
+---
+
+# 1. TECHNOLOGY AND ARCHITECTURE
+
+Use a reliable, maintainable architecture.
+
+Preferred stack:
+
+- Frontend: React + TypeScript.
+- Styling: Tailwind CSS.
+- Backend: Node.js with secure API endpoints.
+- Database: PostgreSQL or the existing connected database.
+- Authentication: Secure server-side authentication.
+- Realtime: WebSocket or database realtime subscriptions where appropriate.
+- Hosting: Vercel-compatible frontend and backend architecture.
+- File storage: Secure object storage for deposit QR images and payment screenshots.
+- PWA: Web App Manifest and Service Worker.
+
+If the existing project uses a different working stack, inspect it first and retain compatible technologies rather than unnecessarily rebuilding everything.
+
+### Main architecture
+
+Create separate modules for:
+
+- Authentication.
+- User profiles.
+- Main wallet.
+- Game integration.
+- Game transaction processing.
+- Deposits.
+- QR code management.
+- Agent transfers.
+- Friend transfers.
+- Withdrawals.
+- Notifications.
+- Admin management.
+- Reports and analytics.
+- Audit logs.
+
+Use one centralized wallet service for the entire platform.
+
+---
+
+# 2. SW88 BRANDING AND DESIGN
+
+Website name: **SW88**
+
+### Visual identity
+
+Create a premium gaming-style interface.
+
+Design requirements:
+
+- Dark premium background.
+- Gold/yellow accent colors.
+- White typography.
+- Clean cards.
+- Professional buttons.
+- Modern icons.
+- Smooth animations.
+- Clear financial information.
+- Attractive game thumbnails.
+- No cluttered layouts.
+
+Avoid excessive gradients, unnecessary decorations, and overlapping elements.
+
+The platform must look polished and professional on both desktop and mobile.
+
+### Responsive design
+
+Support:
+
+- 320px mobile.
+- 375px mobile.
+- 430px mobile.
+- Tablets.
+- Desktop.
+- Large desktop displays.
+
+No horizontal overflow, broken cards, clipped buttons, or unusable game controls.
+
+---
+
+# 3. USER AUTHENTICATION SYSTEM
+
+Create a complete registration and login system.
+
+### Registration
+
+Fields:
+
+- Username.
+- Password.
+- Confirm password.
+
+Generate a unique six-character User ID automatically for every account.
+
+Requirements:
+
+- Every UID must be unique.
+- Enforce uniqueness at database level.
+- Never generate duplicate UIDs.
+- Preserve existing accounts during future updates.
+- Validate all registration fields.
+- Hash passwords securely.
+- Store account information in the database.
+
+Do not hardcode example users as real users.
+
+Use **Ram Rai** as the example display name in development placeholders. Do not use the name Roman in sample forms, placeholders, or default user information.
+
+Never overwrite the actual names of registered users.
+
+### Login
+
+Allow users to log in using:
+
+- Username or User ID.
+- Password.
+
+After authentication:
+
+- Normal users open the User Dashboard.
+- Accounts with a verified ADMIN role open the Admin Dashboard.
+
+Use the same login page for both.
+
+### Session security
+
+- Secure session handling.
+- Protected pages.
+- Logout.
+- Session expiration.
+- Revoke sessions when an account is permanently banned.
+- Never store passwords in plain text.
+- Never trust frontend role information.
+
+---
+
+# 4. UNIQUE USER ID SYSTEM
+
+Every account must have a different six-character UID.
+
+Example:
+
+Username: Ram Rai  
+User ID: RAMR27
+
+### UID requirements
+
+- Generate automatically during registration.
+- Enforce database uniqueness.
+- Make the ID easy to copy.
+- Preserve existing user IDs wherever possible.
+- Use the same UID throughout the platform.
+
+Display the UID in:
+
+- Home page.
+- User profile.
+- Deposit requests.
+- Agent transfers.
+- Friend transfers.
+- Withdrawal requests.
+- Transaction history.
+- Admin Panel.
+
+Add a **COPY ID** button.
+
+After clicking, show:
+
+"User ID Copied Successfully."
+
+A UID is an account identifier, not a replacement for secure authentication.
+
+---
+
+# 5. USER WEBSITE NAVIGATION
+
+Create a simple navigation system.
+
+Navigation:
+
+1. Home
+2. Wallet
+3. Earn Money
+4. History
+5. Profile
+
+Do not create a separate Games navigation item. Games must be displayed directly on the home page.
+
+Use responsive desktop navigation and mobile bottom navigation where appropriate.
+
+---
+
+# 6. HOME PAGE — SIMPLE AND CLEAN
+
+The home page must display only these main elements:
+
+1. Username.
+2. Unique User ID with copy button.
+3. Main wallet balance.
+4. Deposit button/section.
+5. Notifications.
+6. Game list.
+
+Do not display unnecessary financial dashboard cards.
+
+Remove:
+
+- Recent Wallet Ledger.
+- Old Deposit Funds section.
+- Old Friend Transfer section.
+- Separate Games navigation.
+- Verified Game Winning History.
+
+### Home page design
+
+At the top:
+
+- SW88 logo.
+- Username.
+- User UID with COPY ID.
+- Notification icon.
+- Wallet balance.
+- Deposit button.
+
+Below:
+
+**AVAILABLE GAMES**
+
+Display attractive game cards with:
+
+- Game thumbnail.
+- Game name.
+- Short description.
+- Play Now button.
+- Game status.
+
+When a user clicks Play Now, open the actual integrated game.
+
+The home page must remain lightweight, clean, and responsive.
+
+---
+
+# 7. MOST IMPORTANT — REAL GAME CODE INTEGRATION
+
+## User-provided game source code
+
+I will provide the original source code for each game separately.
+
+You must inspect every supplied game before integrating it.
+
+The supplied games may contain HTML, CSS, JavaScript, or other frontend code.
+
+Your responsibility is to convert and adapt the supplied code into a properly integrated SW88 game module.
+
+**Do not simply place the game inside an iframe and assume wallet integration is complete.**
+
+Do not unnecessarily replace the supplied game with a different game.
+
+### Preserve original game appearance
+
+Keep the original:
+
+- Theme.
+- UI design.
+- Layout.
+- Animations.
+- Sounds.
+- Buttons.
+- Controls.
+- Game rules.
+- Gameplay structure.
+- Visual effects.
+- Responsive behavior.
+
+The game must look and feel like the original supplied version.
+
+You may refactor the source code where necessary to make the integration secure and reliable.
+
+### A. Centralized wallet integration
+
+All games must use one common SW88 wallet service.
+
+Create reusable services such as:
+
+- Get current wallet balance.
+- Validate available balance.
+- Start game round.
+- Reserve or deduct stake.
+- Submit completed round.
+- Verify game result.
+- Credit payout.
+- Record loss.
+- Retrieve updated balance.
+
+Every game must communicate with these services.
+
+Do not create separate fake wallets for different games.
+
+### B. When a user opens a game
+
+1. Verify the authenticated user session.
+2. Identify the user's actual UID.
+3. Load the selected game.
+4. Retrieve the latest main wallet balance from the backend.
+5. Display the current balance inside the game.
+6. Check the game's minimum stake requirement.
+7. Allow gameplay only if sufficient balance exists.
+
+The game must not display a false "No Money" error when the user has enough balance.
+
+### C. When a user starts a round
+
+1. User selects the stake.
+2. Frontend sends the request to the backend.
+3. Backend verifies authentication.
+4. Backend checks available wallet balance.
+5. Backend validates the stake limit.
+6. Backend creates a unique round ID.
+7. Backend reserves or deducts the stake exactly once.
+8. Backend confirms that the round has started.
+
+Do not allow the user to start a round if the balance is insufficient.
+
+### D. When a user wins
+
+1. Verify the completed round.
+2. Validate the result according to the game's published rules.
+3. Calculate the correct payout.
+4. Credit the verified payout to the user's actual main wallet.
+5. Save the payout transaction.
+6. Return the updated wallet balance.
+7. Update the game balance and website balance.
+
+### E. When a user loses
+
+1. Verify the round result.
+2. Keep the previously deducted stake recorded.
+3. Do not deduct the same stake again.
+4. Record the loss.
+5. Return the updated wallet balance.
+6. Update the game balance and website balance.
+
+### Example 1 — Winning
+
+Starting wallet: NPR 1,000.
+
+- Game stake: NPR 100.
+- Stake deducted: NPR 100.
+- Remaining balance: NPR 900.
+- Verified total payout: NPR 200.
+- Updated wallet: NPR 1,100.
+
+### Example 2 — Losing
+
+Starting wallet: NPR 1,000.
+
+- Game stake: NPR 100.
+- Stake deducted: NPR 100.
+- Remaining balance: NPR 900.
+- User loses.
+- Final wallet: NPR 900.
+
+### F. Zero-balance behavior
+
+If the user's balance is NPR 0:
+
+- Allow the game page to open.
+- Display the current balance.
+- Disable paid gameplay.
+- Disable the Bet/Play action.
+- Display an insufficient balance message.
+- Provide a Deposit button.
+
+If the balance is lower than the selected stake, explain the required amount.
+
+### G. Real-time wallet synchronization
+
+Whenever a user:
+
+- Deposits money.
+- Starts a game.
+- Wins a game.
+- Loses a game.
+- Transfers money.
+- Receives money.
+- Completes a withdrawal.
+
+Update the correct wallet information across the entire website.
+
+The home page, profile, wallet page, and open game must show consistent balances.
+
+### H. Secure game transaction processing
+
+Implement:
+
+- Atomic database transactions.
+- Unique round IDs.
+- Idempotency keys.
+- Duplicate stake prevention.
+- Duplicate payout prevention.
+- Backend-side balance verification.
+- Negative balance prevention.
+- Safe retry handling.
+- Interrupted round handling.
+- Transaction reconciliation.
+
+Do not trust client-side balance values or client-submitted winning amounts.
+
+A refresh, double click, repeated API request, or network retry must never credit the same payout twice.
+
+### I. Game result fairness
+
+Preserve the supplied game's original rules and published payout logic.
+
+If result generation needs to be moved to the backend, preserve the intended gameplay and payout rules.
+
+Use secure randomness where appropriate.
+
+Do not secretly increase difficulty or change winning odds because a particular user:
+
+- Wins repeatedly.
+- Has a high wallet balance.
+- Deposits more money.
+- Requests a withdrawal.
+
+Any supported difficulty settings must be transparent and applied consistently.
+
+### J. Game integration testing
+
+Test every supplied game separately.
+
+Verify:
+
+- Game opens correctly.
+- Correct UID is connected.
+- Real balance loads.
+- Correct stake is deducted.
+- Winning payout is credited.
+- Loss is deducted exactly once.
+- Zero balance prevents paid gameplay.
+- Insufficient balance is handled correctly.
+- Refreshing does not duplicate transactions.
+- Mobile controls work.
+- Original game appearance remains intact.
+
+Do not mark a game as completed until it passes these tests.
+
+---
+
+# 8. MAIN WALLET SYSTEM
+
+Create one persistent wallet per user.
+
+Display:
+
+- Main Wallet Balance.
+- Available Balance.
+- Reserved Withdrawal Balance.
+- Withdrawable Winning Balance, if supported by the existing eligibility rules.
+
+Keep deposits, transfers, game winnings, and withdrawals correctly categorized.
+
+All financial operations must be backend-authoritative.
+
+### Wallet ledger
+
+Record:
+
+- Transaction ID.
+- User UID.
+- Transaction type.
+- Amount.
+- Previous balance.
+- New balance.
+- Related game or request ID.
+- Transaction status.
+- Timestamp.
+
+Use immutable ledger entries.
+
+Do not silently edit or delete successful financial transactions.
+
+Corrections must use auditable reversal or adjustment transactions.
+
+---
+
+# 9. DEPOSIT SYSTEM WITH ADMIN-MANAGED QR CODE
+
+Add a Deposit button on the home page and a dedicated Wallet deposit experience.
+
+### A. Deposit form
+
+Fields:
+
+1. User ID — automatically populated and read-only.
+2. Username — automatically populated and read-only.
+3. Deposit Amount.
+
+Minimum deposit: **NPR 100**.
+
+### B. QR code display
+
+After entering the amount:
+
+- Display the active payment QR image.
+- Display the entered deposit amount.
+- Show payment instructions.
+- Allow the user to scan the QR code.
+
+The QR image must be controlled from the Admin Panel.
+
+### C. Payment screenshot upload
+
+After making the payment, allow the user to upload a screenshot.
+
+Accepted formats:
+
+- JPG.
+- JPEG.
+- PNG.
+- WEBP.
+
+Requirements:
+
+- Validate file type and size.
+- Show screenshot preview.
+- Require screenshot before submission.
+- Generate a unique Deposit Request ID.
+- Upload the screenshot to secure file storage.
+- Save the request in the database.
+
+After submission, display:
+
+"Your deposit request has been submitted successfully. Please wait while our admin verifies your payment."
+
+Status: PENDING.
+
+### D. Admin QR management
+
+Create an Admin Panel section:
+
+**DEPOSIT QR MANAGEMENT**
+
+Admin can:
+
+- Upload QR image.
+- Replace QR image.
+- Remove QR image.
+- Preview active QR image.
+- Publish changes.
+
+The user Deposit section must automatically display the currently active QR image.
+
+If no QR image is active, show:
+
+"Deposits are temporarily unavailable."
+
+### E. Admin deposit verification
+
+Display submitted requests with:
+
+- Username.
+- UID.
+- Amount.
+- Deposit Request ID.
+- Payment screenshot.
+- Submission time.
+- Status.
+
+Admin actions:
+
+- Approve.
+- Reject.
+- Add a message.
+
+Only credit the user's wallet after genuine payment verification.
+
+On approval:
+
+- Credit the correct wallet.
+- Record the transaction.
+- Update status to APPROVED.
+- Notify the user.
+
+On rejection:
+
+- Do not credit the wallet.
+- Record rejection reason.
+- Update status to REJECTED.
+- Notify the user.
+
+### F. Screenshot deletion
+
+After an admin approves or rejects a deposit:
+
+- Retain the transaction and request metadata.
+- Automatically delete the uploaded screenshot after 5 minutes.
+- Delete the actual stored file and its accessible reference.
+- Keep the amount, UID, request ID, status, and audit records.
+- Retain screenshots for pending requests until reviewed.
+
+Implement deletion using a reliable backend scheduled task.
+
+Do not use a browser-only timer.
+
+---
+
+# 10. EARN MONEY PAGE
+
+Create a separate navigation item:
+
+**EARN MONEY**
+
+This page contains two independent sections:
+
+1. Become an Agent & Earn.
+2. Friend Transfer & Earn.
+
+Do not put these forms on the home page.
+
+## A. BECOME AN AGENT & EARN
+
+Subtitle:
+
+"Help other SW88 users receive balance instantly. Transfer funds with 0% service commission."
+
+### Agent eligibility
+
+Minimum available wallet balance: **NPR 1,500**.
+
+The form must always remain visible.
+
+If the user has less than NPR 1,500:
+
+- Display the form.
+- Display the current wallet balance.
+- Explain the NPR 1,500 eligibility requirement.
+- Disable the Confirm Transfer button.
+- Prevent submission through the backend.
+
+If eligible, enable the form.
+
+### Agent Transfer form
+
+Fields:
+
+1. Receiver User ID.
+2. Sender Username — automatically populated and read-only.
+3. Transfer Amount.
+4. Confirm Transfer.
+
+Minimum transfer: **NPR 200**.
+
+### Agent transfer rules
+
+- Commission: 0%.
+- Receiver receives the full amount.
+- Sender must maintain at least NPR 1,500 after transfer.
+- Validate the receiver's UID.
+- Prevent self-transfer.
+- Prevent duplicate transactions.
+- Verify sender balance on the backend.
+- Process both wallet changes atomically.
+
+Example:
+
+Sender balance: NPR 2,500  
+Transfer: NPR 200  
+Commission: NPR 0  
+Remaining sender balance: NPR 2,300  
+Receiver receives: NPR 200
+
+### Agent transfer receipt
+
+Display:
+
+- Sender username and UID.
+- Receiver username and UID.
+- Amount.
+- Commission.
+- Remaining balance.
+- Transaction ID.
+- Date and time.
+
+## B. FRIEND TRANSFER & EARN
+
+Subtitle:
+
+"Transfer balance to your friends instantly. The receiver gets the full amount while SW88 collects a service commission."
+
+No minimum balance eligibility requirement.
+
+The user must simply have enough available balance for the transfer and commission.
+
+### Friend Transfer form
+
+Fields:
+
+1. Friend User ID.
+2. Sender Username — automatically populated and read-only.
+3. Transfer Amount.
+4. Commission information.
+5. Confirm Transfer.
+
+Minimum transfer: **NPR 100**.
+
+### Commission
+
+SW88 takes a 10% commission from the sender in addition to the amount transferred.
+
+Example:
+
+Sender balance: NPR 500  
+Transfer amount: NPR 200  
+Commission: NPR 20  
+Total deduction: NPR 220  
+Receiver receives: NPR 200  
+Remaining balance: NPR 280
+
+Display the exact commission calculation before confirmation.
+
+### Friend transfer rules
+
+- Commission is 10%.
+- Receiver gets the full transfer amount.
+- Validate sender balance including commission.
+- Validate receiver UID.
+- Prevent self-transfer.
+- Prevent duplicate transfers.
+- Process sender deduction, receiver credit, and commission record atomically.
+- Update both users' balances after database confirmation.
+
+### Transfer receipts
+
+Display:
+
+- Sender username and UID.
+- Receiver username and UID.
+- Transfer amount.
+- 10% commission.
+- Total sender deduction.
+- Remaining balance.
+- Transaction ID.
+- Date and time.
+
+---
+
+# 11. WITHDRAWAL SYSTEM
+
+Create a dedicated Withdrawal page inside Wallet.
+
+### Withdrawal requirements
+
+Minimum withdrawal: NPR 1,000.
+
+Maximum withdrawal per request: NPR 10,000.
+
+Only eligible verified withdrawable winnings may be withdrawn according to the platform's published rules.
+
+### Withdrawal methods
+
+**Option 1: eSewa**
+
+Fields:
+
+- Account holder name.
+- Registered mobile number.
+
+**Option 2: Bank Transfer**
+
+Fields:
+
+- Bank name.
+- Account holder name.
+- Account number.
+- Branch.
+
+Show only the relevant fields for the selected method.
+
+### User withdrawal process
+
+1. Display available withdrawable balance.
+2. User enters withdrawal amount.
+3. User selects payment method.
+4. User enters payment details.
+5. Display confirmation screen.
+6. Generate unique Withdrawal ID.
+7. Submit request.
+
+After submission:
+
+- Reserve the requested amount.
+- Move it out of available withdrawable balance.
+- Display PENDING status.
+- Send the request to the Admin Panel.
+
+Do not allow multiple pending requests if the existing withdrawal rules prohibit them.
+
+### Admin approval
+
+When approved:
+
+- Finalize the reserved deduction.
+- Record the approval.
+- Update request status.
+
+Track actual payment separately.
+
+### Admin rejection
+
+When rejected:
+
+- Release reserved funds.
+- Return them to the user's available withdrawable balance.
+- Save the rejection reason.
+- Notify the user.
+
+### Withdrawal statuses
+
+Request status:
+
+- PENDING.
+- APPROVED.
+- REJECTED.
+
+Payment status:
+
+- NOT PAID.
+- PROCESSING.
+- PAID.
+- PAYMENT FAILED.
+
+Never display PAID before actual payout verification.
+
+### Admin message
+
+Allow the admin to add a note to every withdrawal request.
+
+The user must see the note in:
+
+- Withdrawal history.
+- Notifications.
+- Withdrawal details.
+
+---
+
+# 12. USER HISTORY AND NOTIFICATIONS
+
+Create a History page with tabs:
+
+1. All Transactions.
+2. Deposits.
+3. Withdrawals.
+4. Agent Transfers.
+5. Friend Transfers.
+6. Game History.
+
+Display:
+
+- Transaction ID.
+- Type.
+- Amount.
+- Status.
+- Date and time.
+- Related username or UID where applicable.
+
+Create a notification system for:
+
+- Deposit submitted.
+- Deposit approved.
+- Deposit rejected.
+- Transfer sent.
+- Transfer received.
+- Withdrawal submitted.
+- Withdrawal approved.
+- Withdrawal rejected.
+- Admin message.
+- Account status changes.
+
+Notifications must be stored persistently and marked read/unread.
+
+---
+
+# 13. USER PROFILE
+
+Create a clean profile page.
+
+Display:
+
+- Username.
+- Unique six-character UID.
+- COPY ID button.
+- Registration date.
+- Account status.
+- Wallet balance.
+- Account security settings.
+
+Allow users to update permitted profile information and change passwords securely.
+
+Do not allow users to change their UID or account role.
+
+---
+
+# 14. ADMIN PANEL — COMPLETE MANAGEMENT SYSTEM
+
+## Admin access
+
+Use the same login page for everyone.
+
+There must not be a separate visible Admin Login page.
+
+After login:
+
+- Verify the authenticated account's ADMIN role on the backend.
+- If ADMIN, open the Admin Dashboard.
+- If USER, open the User Dashboard.
+
+Do not expose admin passwords in frontend code.
+
+Provision administrator accounts securely on the backend.
+
+Do not grant admin access based only on a username or password comparison in JavaScript.
+
+## Admin dashboard design
+
+Use a premium dark theme with gold accents.
+
+### Header
+
+- SW88 Admin logo.
+- Admin Dashboard title.
+- Nepal time with seconds.
+- Search.
+- Notification icon.
+- Admin profile.
+- Secure logout.
+
+### Sidebar
+
+1. Overview.
+2. Users Management.
+3. Wallet Management.
+4. Deposit Requests.
+5. Deposit QR Management.
+6. Agent Transfers.
+7. Friend Transfers.
+8. Commission Records.
+9. Withdrawal Requests.
+10. Game Management.
+11. Game Transactions.
+12. Reports & Analytics.
+13. Permanently Banned Users.
+14. Admin Activity Logs.
+15. Settings.
+
+## A. ADMIN OVERVIEW
+
+Display six main financial cards.
+
+**1. Total Money**
+
+Total successful direct admin-funded credits and authorized top-ups.
+
+**2. Agent Transfer**
+
+Total successful Agent Transfer amount.
+
+**3. Friends Transaction**
+
+Total successful Friend Transfer amount.
+
+**4. Commission Amount**
+
+Total commission collected from successful Friend Transfers.
+
+**5. Today's Transactions**
+
+Number of successful admin top-ups, Agent Transfers, and Friend Transfers today.
+
+**6. Total Transactions**
+
+Total successful transactions for those categories since launch.
+
+Keep game stakes, game payouts, and withdrawals in separate reports. Do not mix financial categories or double-count transactions.
+
+Add filters:
+
+- Today.
+- Yesterday.
+- Last 7 Days.
+- This Month.
+- Custom Date Range.
+
+Use Nepal Standard Time (UTC+05:45).
+
+## B. USER MANAGEMENT
+
+Display:
+
+- Username.
+- UID.
+- Registration date.
+- Account status.
+- Main wallet balance.
+- Withdrawable winnings.
+- Reserved withdrawal amount.
+- Total deposits.
+- Total withdrawals.
+- Total game stakes.
+- Total wins and losses.
+- Agent eligibility.
+
+Admin actions:
+
+- View profile.
+- View transaction history.
+- View game history.
+- Suspend account.
+- Permanently ban account.
+- Reactivate an eligible suspended account.
+- Make authorized wallet adjustments with a recorded reason.
+
+## C. DEPOSIT MANAGEMENT
+
+Show all deposit requests.
+
+Admin can:
+
+- View payment screenshot.
+- Verify payment.
+- Approve.
+- Reject.
+- Add message.
+- View request history.
+
+## D. AGENT TRANSFER MANAGEMENT
+
+Display:
+
+- Sender.
+- Receiver.
+- Both UIDs.
+- Amount.
+- Commission.
+- Transaction ID.
+- Status.
+- Date and time.
+
+## E. FRIEND TRANSFER MANAGEMENT
+
+Display:
+
+- Sender.
+- Receiver.
+- Both UIDs.
+- Transfer amount.
+- 10% commission.
+- Total sender deduction.
+- Transaction ID.
+- Status.
+- Date and time.
+
+## F. COMMISSION MANAGEMENT
+
+Display:
+
+- Commission transaction ID.
+- Source transaction ID.
+- Friend Transfer amount.
+- Commission rate.
+- Commission collected.
+- Date and time.
+
+Agent Transfers must show 0% commission.
+
+## G. WITHDRAWAL MANAGEMENT
+
+Create tabs:
+
+- Pending.
+- Approved.
+- Rejected.
+- All Requests.
+
+Show:
+
+- Withdrawal ID.
+- Username.
+- UID.
+- Amount.
+- Payment method.
+- Payment destination.
+- Request date.
+- Request status.
+- Payment status.
+
+Admin can:
+
+- View details.
+- Approve.
+- Reject with reason.
+- Add a note visible to the user.
+- Update payment status after verification.
+
+Dashboard statistics:
+
+- Pending amount.
+- Approved amount.
+- Total actually paid.
+- Rejected requests.
+
+## H. GAME MANAGEMENT
+
+Display all supplied games.
+
+Admin can:
+
+- Enable or disable games.
+- View game rounds.
+- View stakes.
+- View payouts.
+- View wins and losses.
+- Configure supported published stake limits.
+- Manage transparent game settings.
+- View game performance.
+
+All configuration changes must be logged.
+
+Do not add secret individual user outcome manipulation.
+
+## I. GAME TRANSACTION REPORTS
+
+Search and filter by:
+
+- Username.
+- UID.
+- Game.
+- Round ID.
+- Transaction ID.
+- Date.
+- Status.
+
+Display:
+
+- Stake.
+- Result.
+- Payout.
+- Net result.
+- Wallet before.
+- Wallet after.
+- Transaction timestamp.
+
+## J. PERMANENT USER BAN MANAGEMENT
+
+Add a permanent ban action inside User Management.
+
+Admin must:
+
+1. Select user.
+2. View UID.
+3. Enter ban reason.
+4. Confirm permanent ban.
+
+After banning:
+
+- Set account status to BANNED.
+- Revoke active sessions.
+- Block future login.
+- Block game access.
+- Block new financial operations.
+- Keep required financial and audit records.
+
+When a banned user attempts to log in, display:
+
+**YOUR ACCOUNT HAS BEEN PERMANENTLY BANNED**
+
+"Your SW88 account has been permanently banned by the app owner. You no longer have access to this account or its platform services. If you believe this action was made by mistake, please contact official SW88 support."
+
+Maintain a searchable Permanently Banned Users page.
+
+## K. ADMIN ACTIVITY LOGS
+
+Record:
+
+- Admin login/logout.
+- Deposit approval/rejection.
+- Withdrawal approval/rejection.
+- Wallet adjustment.
+- Account suspension/ban.
+- Game configuration changes.
+- QR changes.
+- Payment status updates.
+
+Each record must contain admin UID, action, affected record, timestamp, and reason where applicable.
+
+---
+
+# 15. DATABASE DESIGN AND DATA PERSISTENCE
+
+Inspect and reuse the existing database if available.
+
+Suggested database entities:
+
+- USERS.
+- USER_SESSIONS.
+- WALLETS.
+- WALLET_LEDGER.
+- TRANSACTIONS.
+- GAME_ROUNDS.
+- GAME_TRANSACTIONS.
+- GAME_PAYOUTS.
+- DEPOSIT_REQUESTS.
+- DEPOSIT_QR_SETTINGS.
+- WITHDRAWAL_REQUESTS.
+- WITHDRAWAL_LEDGER.
+- AGENT_TRANSFERS.
+- FRIEND_TRANSFERS.
+- COMMISSION_RECORDS.
+- NOTIFICATIONS.
+- ADMIN_AUDIT_LOGS.
+- ACCOUNT_BANS.
+
+Use:
+
+- Primary keys.
+- Foreign keys.
+- Unique UID constraints.
+- Appropriate indexes.
+- Validated transaction states.
+- Server timestamps.
+- Atomic operations.
+
+### Critical data persistence rule
+
+Deposits and wallet balances must never disappear because of a website update or deployment.
+
+Never:
+
+- Reset the production database during deployment.
+- Delete user records during a normal code update.
+- Reinitialize production wallet balances.
+- Replace production records with sample data.
+- Store real wallet balances only in frontend storage.
+
+Back up the database before migrations.
+
+Use backward-compatible migrations.
+
+Preserve all existing accounts and transaction relationships.
+
+---
+
+# 16. SECURITY REQUIREMENTS
+
+Implement:
+
+- Secure password hashing.
+- Server-side authentication.
+- Backend role verification.
+- Authorization checks for every financial API.
+- Rate limiting.
+- Input validation.
+- SQL injection protection.
+- XSS protection.
+- CSRF protection where applicable.
+- Secure file upload validation.
+- Secure session handling.
+- Atomic financial operations.
+- Idempotency.
+- Duplicate transaction prevention.
+- Audit logging.
+- HTTPS.
+- Private payment information.
+- Proper error handling.
+
+Never trust the frontend for:
+
+- User identity.
+- User role.
+- Wallet balance.
+- Game result.
+- Winning payout.
+- Withdrawal approval.
+- Deposit verification.
+- Commission calculation.
+
+Never allow users to change another user's wallet by manipulating frontend requests.
+
+---
+
+# 17. PWA — DOWNLOAD SW88 APP
+
+Create an installable Progressive Web App.
+
+Add a button:
+
+**DOWNLOAD SW88 APP**
+
+Requirements:
+
+- Android installation prompt where supported.
+- iPhone Safari Add to Home Screen instructions.
+- App icon.
+- Splash screen where supported.
+- Standalone display.
+- Theme color.
+- Web manifest.
+- Service worker.
+
+If already installed, show:
+
+"APP INSTALLED"
+
+Do not cache private wallet information, payment screenshots, admin pages, authentication tokens, or sensitive user data in public offline storage.
+
+---
+
+# 18. PERFORMANCE AND USER EXPERIENCE
+
+Ensure:
+
+- Fast page loading.
+- Optimized images.
+- Lazy-loaded game thumbnails.
+- Lightweight animations.
+- Responsive forms.
+- Clear loading indicators.
+- Success and error messages.
+- Confirmation before financial transactions.
+- No broken navigation.
+- No console errors.
+- No missing game assets.
+- No false wallet errors.
+
+Use consistent design throughout the application.
+
+---
+
+# 19. LEGAL AND RESPONSIBLE GAMING REQUIREMENTS
+
+Before enabling real-money deposits, gameplay, transfers, or withdrawals, verify that the platform is legally authorized to provide those services in Nepal and that its payment providers and hosting providers permit the activity.
+
+Implement required:
+
+- Age verification.
+- Location restrictions.
+- User terms and conditions.
+- Privacy policy.
+- Responsible gaming information.
+- Deposit and spending limits where required.
+- Self-exclusion controls where required.
+
+Keep real-money functionality disabled until all applicable legal and provider requirements are satisfied.
+
+All game odds, rules, payouts, and difficulty settings must be transparent and consistent. Never secretly manipulate an individual user's outcomes.
+
+---
+
+# 20. FINAL DEVELOPMENT AND TESTING PROCESS
+
+Do not try to finish the entire application without testing each module.
+
+Follow this sequence:
+
+### Phase 1 — Project inspection
+
+- Inspect existing source code.
+- Inspect database.
+- Inspect authentication.
+- Inspect wallet architecture.
+- Inspect every supplied game.
+- Identify existing bugs.
+- Prepare a backup.
+
+### Phase 2 — Core application
+
+- Build user authentication.
+- Build UID generation.
+- Build user profile.
+- Build home page.
+- Build navigation.
+
+### Phase 3 — Wallet and database
+
+- Implement persistent wallet service.
+- Implement transaction ledger.
+- Implement real-time balance synchronization.
+- Test deposits and balance persistence.
+
+### Phase 4 — Game integration
+
+- Integrate every supplied game.
+- Preserve original design and gameplay.
+- Connect every game to the centralized wallet.
+- Test stake deductions.
+- Test payouts.
+- Test losses.
+- Test zero-balance behavior.
+- Test interrupted rounds.
+
+### Phase 5 — Deposit and transfer systems
+
+- Implement QR deposit.
+- Implement screenshot upload.
+- Implement admin verification.
+- Implement screenshot deletion.
+- Implement Agent Transfer.
+- Implement Friend Transfer.
+- Verify commissions.
+
+### Phase 6 — Withdrawal system
+
+- Implement withdrawal requests.
+- Implement balance reservation.
+- Implement admin approval/rejection.
+- Implement payment tracking.
+- Implement user notifications.
+
+### Phase 7 — Admin Dashboard
+
+- Implement all management sections.
+- Implement financial reports.
+- Implement account management.
+- Implement permanent bans.
+- Implement audit logs.
+
+### Phase 8 — PWA and responsive testing
+
+- Test mobile.
+- Test desktop.
+- Test installation.
+- Test performance.
+- Test security.
+
+### Phase 9 — Production readiness
+
+Before deployment:
+
+- Back up production data.
+- Run database migrations safely.
+- Verify environment variables.
+- Verify API security.
+- Verify payment integration.
+- Run complete end-to-end tests.
+
+---
+
+# 21. FINAL ACCEPTANCE CHECKLIST
+
+Do not declare the project complete until all applicable tests pass.
+
+## User system
+
+- [ ] Registration works.
+- [ ] Login works.
+- [ ] Unique six-character UID works.
+- [ ] Copy ID works.
+- [ ] Profile works.
+- [ ] Notifications work.
+
+## Home page
+
+- [ ] Only the requested main sections appear.
+- [ ] Games appear directly on the home page.
+- [ ] Deposit button works.
+- [ ] Mobile layout works.
+
+## Game system
+
+- [ ] Every supplied game opens.
+- [ ] Original game theme is preserved.
+- [ ] Main wallet connects to every game.
+- [ ] Balance loads correctly.
+- [ ] Stake deduction works.
+- [ ] Winning payout works.
+- [ ] Loss deduction works.
+- [ ] Zero-balance users cannot start paid rounds.
+- [ ] Duplicate transactions are prevented.
+- [ ] Wallet stays synchronized.
+
+## Deposit system
+
+- [ ] QR image loads.
+- [ ] Admin can replace QR.
+- [ ] Admin can remove QR.
+- [ ] Screenshot upload works.
+- [ ] Admin can verify deposits.
+- [ ] Approved deposits credit the correct wallet.
+- [ ] Rejected deposits do not credit the wallet.
+- [ ] Reviewed screenshots are deleted after 5 minutes.
+- [ ] Deposit history remains available.
+
+## Earn Money
+
+- [ ] Agent form remains visible.
+- [ ] Agent eligibility works.
+- [ ] Agent commission is 0%.
+- [ ] Friend transfer minimum is NPR 100.
+- [ ] Friend commission is 10%.
+- [ ] Receiver receives the full transfer amount.
+- [ ] Sender's balance is correct.
+- [ ] Both users' transaction histories update.
+
+## Withdrawals
+
+- [ ] Minimum and maximum limits work.
+- [ ] Requests reach Admin Panel.
+- [ ] Funds are reserved correctly.
+- [ ] Approval works.
+- [ ] Rejection returns reserved funds.
+- [ ] Admin notes appear to users.
+- [ ] Payment status is accurate.
+
+## Admin
+
+- [ ] Same login system works.
+- [ ] Admin role is verified on backend.
+- [ ] User management works.
+- [ ] QR management works.
+- [ ] Deposit management works.
+- [ ] Transfer management works.
+- [ ] Withdrawal management works.
+- [ ] Game monitoring works.
+- [ ] Permanent bans work.
+- [ ] Activity logs work.
+
+## Database and deployment
+
+- [ ] User data persists.
+- [ ] Deposits persist.
+- [ ] Wallet balances persist.
+- [ ] Game history persists.
+- [ ] Transaction history persists.
+- [ ] Normal deployments do not erase data.
+- [ ] Database backups are available.
+
+---
+
+# FINAL PROJECT INSTRUCTION
+
+Build SW88 as a complete, professional, fully responsive gaming platform with a real backend and persistent database.
+
+The most important development priority is the supplied game-code integration.
+
+I will provide the original game source code. Inspect it, understand its mechanics, and adapt it into the SW88 architecture using a centralized backend wallet integration.
+
+Preserve the original game theme, appearance, animations, sounds, controls, and gameplay.
+
+Every game must use the same authenticated user's real SW88 main wallet. A verified stake must be deducted correctly, a verified payout must be credited correctly, and a losing round must record the correct deduction.
+
+Never use fake coins, demo wallet balances, frontend-only money calculations, or temporary financial records.
+
+Do not silently change game outcomes or winning odds based on individual user behavior.
+
+Build, integrate, test, and verify every module before declaring the platform complete.
+
+**DELIVER A WORKING SW88 APPLICATION, NOT JUST A DESIGN OR DEMO.**

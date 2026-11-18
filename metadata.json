@@ -1,0 +1,6 @@
+{
+  "name": "SW88",
+  "description": "SW88 — Premier Gaming Platform with Centralized Wallet, Instant Transfers, and Live Games",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

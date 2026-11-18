@@ -1,0 +1,123 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  html,
+  body {
+    font-family: var(--font-sans);
+    background-color: #0B0D11;
+    color: #F5F7FA;
+    max-width: 100%;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono-nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0D11;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(230, 184, 79, 0.45);
+}
+
+@keyframes sw88Ring {
+  to {
+    stroke-dashoffset: 119.4;
+  }
+}
+@keyframes sw88Glow {
+  0%, 100% {
+    box-shadow: 0 0 0 transparent;
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 18px 6px #ffd54a, 0 0 32px 12px rgba(255, 159, 26, 0.55);
+    transform: scale(1.1) translateY(-4px);
+  }
+}
+@keyframes sw88CoinFall {
+  to {
+    transform: translateY(115vh) rotateY(1080deg);
+  }
+}
+@keyframes sw88CoinFly {
+  0% {
+    transform: translate(0, 0) scale(0.3);
+  }
+  35% {
+    transform: translate(var(--dx), var(--dy)) scale(1) rotateY(360deg);
+  }
+  100% {
+    transform: translate(calc(var(--dx) * 1.3), 70vh) rotateY(1440deg);
+  }
+}
+@keyframes sw88WinBanner {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  15% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+}
+@keyframes sw88FloatOrb {
+  50% {
+    transform: translateY(-26px);
+  }
+}
+
