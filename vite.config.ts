@@ -18,12 +18,13 @@ export default defineConfig(() => {
           'pwa-192x192.png',
           'pwa-512x512.png',
           'pwa-maskable-512x512.png',
+          'og-preview.png',
         ],
         manifest: {
           id: '/',
           name: 'SW88 Gaming Platform',
           short_name: 'SW88',
-          description: 'SW88 — Premier Gaming Platform with Centralized Wallet, Instant Transfers, and Live Games',
+          description: 'SW88 — Live Royale Cards, Crash & Arcade Gaming with Centralized Wallet & Instant Transfers',
           theme_color: '#0B0D11',
           background_color: '#0B0D11',
           display: 'standalone',
@@ -31,6 +32,10 @@ export default defineConfig(() => {
           categories: ['games', 'entertainment'],
           start_url: '/',
           scope: '/',
+          prefer_related_applications: false,
+          launch_handler: {
+            client_mode: ['focus-existing', 'auto'],
+          },
           icons: [
             {
               src: '/pwa-192x192.png',

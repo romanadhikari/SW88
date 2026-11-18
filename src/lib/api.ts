@@ -3,6 +3,29 @@ import type { BannedPayload } from '../types';
 
 const TOKEN_KEY = 'sw88_auth_token';
 
+export const API_BASE = ((import.meta as any).env?.VITE_API_URL || '').replace(/\/+$/, '');
+const EXPLICIT_WS_BASE = ((import.meta as any).env?.VITE_WS_URL || '').replace(/\/+$/, '');
+
+export function apiUrl(path: string): string {
+  if (!path) return API_BASE || '';
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return API_BASE ? `${API_BASE}${normalized}` : normalized;
+}
+
+export function wsUrl(path: string): string {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  if (EXPLICIT_WS_BASE) {
+    return `${EXPLICIT_WS_BASE}${normalized}`;
+  }
+  if (API_BASE) {
+    const wsBase = API_BASE.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
+    return `${wsBase}${normalized}`;
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}${normalized}`;
+}
+
 export function getStoredToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -50,17 +73,18 @@ export async function apiFetch<T = any>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...options,
     headers,
   });
 
   const text = await res.text();
+  const isHtmlResponse = /^\s*(?:<!doctype|<html|<head|<body)/i.test(text);
   let data: any = {};
   try {
-    data = text ? JSON.parse(text) : {};
+    data = text && !isHtmlResponse ? JSON.parse(text) : {};
   } catch {
-    data = { error: text || 'Unexpected server response' };
+    data = { error: isHtmlResponse ? '' : text || 'Unexpected server response' };
   }
 
   if (!res.ok) {
@@ -72,7 +96,19 @@ export async function apiFetch<T = any>(
           'Your SW88 account has been permanently banned by the app owner. You no longer have access to this account or its platform services. If you believe this action was made by mistake, please contact official SW88 support.',
       });
     }
-    throw new ApiError(data?.error || `Request failed (${res.status})`, res.status, data?.code, data?.title);
+    const fallbackMsg = isHtmlResponse
+      ? res.status === 404
+        ? 'Service route not found. Please open the official SW88 app URL and refresh.'
+        : `Server connection error (${res.status}). Please refresh and try again.`
+      : `Request failed (${res.status})`;
+    throw new ApiError(data?.error || fallbackMsg, res.status, data?.code, data?.title);
+  }
+
+  if (isHtmlResponse) {
+    throw new ApiError(
+      'Received an invalid page response instead of server data. Please open the official SW88 app URL.',
+      res.status || 502
+    );
   }
 
   return data as T;

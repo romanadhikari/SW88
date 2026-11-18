@@ -3,7 +3,9 @@ import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = process.env.SW88_DATA_DIR
+  ? path.resolve(process.env.SW88_DATA_DIR)
+  : path.resolve(process.cwd(), 'data');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 export const QR_UPLOAD_DIR = path.join(UPLOAD_DIR, 'qr');
 export const SCREENSHOT_UPLOAD_DIR = path.join(UPLOAD_DIR, 'screenshots');

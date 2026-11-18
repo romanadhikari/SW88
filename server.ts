@@ -8,6 +8,7 @@ import { authRouter } from './src/server/auth.ts';
 import { gameRouter, skylineEngine } from './src/server/gameEngine.ts';
 import { apiRouter, startScreenshotCleanupJob } from './src/server/routes.ts';
 import { attachWebSocket } from './src/server/realtime.ts';
+import { injectOpenGraphHtml } from './src/server/ogMeta.ts';
 
 async function bootstrap() {
   initDatabase();
@@ -23,7 +24,35 @@ async function bootstrap() {
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  app.use('/api', (_req, res, next) => {
+  const originPatterns = [process.env.CORS_ORIGINS || '', process.env.APP_URL || '']
+    .flatMap((v) => v.split(','))
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+
+  const isOriginAllowed = (origin: string): boolean => {
+    if (originPatterns.length === 0) return true;
+    for (const pat of originPatterns) {
+      if (pat === '*' || pat === origin) return true;
+      if (pat.includes('*')) {
+        const escaped = pat.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '[^.]+');
+        if (new RegExp(`^${escaped}$`, 'i').test(origin)) return true;
+      }
+    }
+    return false;
+  };
+
+  app.use('/api', (req, res, next) => {
+    const origin = typeof req.headers.origin === 'string' ? req.headers.origin.replace(/\/+$/, '') : '';
+    if (origin && isOriginAllowed(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+    }
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     next();
   });
@@ -35,6 +64,9 @@ async function bootstrap() {
   app.use('/api/auth', authRouter);
   app.use('/api/games', gameRouter);
   app.use('/api', apiRouter);
+  app.use('/api', (_req, res) => {
+    res.status(404).json({ error: 'API endpoint not found' });
+  });
 
   const isProd = process.env.NODE_ENV === 'production';
   if (!isProd) {
@@ -46,9 +78,33 @@ async function bootstrap() {
         ws: { server, path: '/vite-hmr' },
         hmr: process.env.DISABLE_HMR === 'true' ? false : { server, path: '/vite-hmr' },
       },
-      appType: 'spa',
+      appType: 'custom',
+    });
+    app.get('/sw.js', (_req, res) => {
+      res
+        .status(200)
+        .set({
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        })
+        .send('self.addEventListener("install",()=>self.skipWaiting());self.addEventListener("activate",()=>self.clients.claim());');
     });
     app.use(vite.middlewares);
+    app.get('*', async (req, res, next) => {
+      try {
+        if (req.path.startsWith('/api') || req.path.startsWith('/ws')) {
+          return next();
+        }
+        const indexPath = path.resolve(process.cwd(), 'index.html');
+        let html = fs.readFileSync(indexPath, 'utf-8');
+        html = injectOpenGraphHtml(html, req);
+        html = await vite.transformIndexHtml(req.originalUrl, html);
+        res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).end(html);
+      } catch (err) {
+        vite.ssrFixStacktrace(err as Error);
+        next(err);
+      }
+    });
   } else {
     const distDir = path.resolve(process.cwd(), 'dist');
     app.use(
@@ -65,12 +121,14 @@ async function bootstrap() {
         },
       })
     );
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
       const indexFile = path.join(distDir, 'index.html');
       if (fs.existsSync(indexFile)) {
-        return res.sendFile(indexFile);
+        const raw = fs.readFileSync(indexFile, 'utf-8');
+        const html = injectOpenGraphHtml(raw, req);
+        return res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
       }
-      return res.status(404).send('Build output not found.');
+      return res.json({ ok: true, service: 'SW88 API', status: 'running' });
     });
   }
 

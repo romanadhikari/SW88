@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthPage } from './components/AuthPage';
-import { DownloadPage } from './components/DownloadPage';
+import { MobileGameRestrictionModal } from './components/MobileGameRestrictionModal';
+import { MobileInstallPrompt } from './components/MobileInstallPrompt';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { UserPortal, type UserTab } from './components/UserPortal';
 import { BubbleRocketX } from './games/BubbleRocketX';
 import { SkylineCrash, type SkylinePublicState } from './games/SkylineCrash';
 import { ThreePattiRoyale } from './games/ThreePattiRoyale';
+import { usePWAInstall } from './hooks/usePWAInstall';
 import { apiFetch, getStoredToken, onBannedEvent, setStoredToken } from './lib/api';
+import { syncClientSeo } from './lib/seo';
 import type { BannedPayload, GameInfo, MaintenanceState, NotificationItem, User, Wallet } from './types';
 
-function isDownloadPath(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.location.pathname.replace(/\/+$/, '') === '/download';
-}
-
 export default function App() {
-  const [downloadRoute, setDownloadRoute] = useState<boolean>(() => isDownloadPath());
   const [booting, setBooting] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -32,23 +29,9 @@ export default function App() {
   const [adminLiveTick, setAdminLiveTick] = useState(0);
   const [liveSkyline, setLiveSkyline] = useState<SkylinePublicState | null>(null);
 
+  const { isMobileBrowserRestricted } = usePWAInstall();
   const wsRef = useRef<WebSocket | null>(null);
-
-  useEffect(() => {
-    const onPop = () => setDownloadRoute(isDownloadPath());
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
-
-  const navigateHomeFromDownload = useCallback(() => {
-    try {
-      window.history.pushState({}, '', '/');
-    } catch {
-      window.location.href = '/';
-      return;
-    }
-    setDownloadRoute(false);
-  }, []);
+  const deepLinkAppliedRef = useRef(false);
 
   const clearSession = useCallback(() => {
     setStoredToken(null);
@@ -191,8 +174,16 @@ export default function App() {
 
     connect();
 
+    const onNetworkRestored = () => {
+      refreshWallet();
+      loadGames();
+      loadNotifications();
+    };
+    window.addEventListener('sw88:reconnected', onNetworkRestored);
+
     return () => {
       closed = true;
+      window.removeEventListener('sw88:reconnected', onNetworkRestored);
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (wsRef.current) {
         wsRef.current.close();
@@ -200,6 +191,54 @@ export default function App() {
       }
     };
   }, [user?.id, clearSession, loadGames, loadNotifications, refreshWallet]);
+
+  // Apply shareable deep link (/play/<gameId> or /?game=<gameId>) once user & games load
+  useEffect(() => {
+    if (!user || user.role === 'ADMIN' || games.length === 0 || deepLinkAppliedRef.current) return;
+    deepLinkAppliedRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const queryGame = params.get('game')?.trim().toLowerCase();
+    const pathMatch = window.location.pathname.toLowerCase().match(/^\/(?:play|game|games)\/([a-z0-9-]+)\/?$/);
+    const requestedGameId = queryGame || pathMatch?.[1] || '';
+    if (requestedGameId) {
+      const target = games.find((g) => g.id === requestedGameId);
+      if (target && !maintenance.enabled) {
+        setActiveGame(target);
+      }
+    }
+  }, [games, maintenance.enabled, user]);
+
+  // Sync dynamic Open Graph / SEO tags as user navigates
+  useEffect(() => {
+    if (activeGame) {
+      const ogImageMap: Record<string, string> = {
+        '3-patti-royale': '/og-3patti.jpg',
+        'bubble-rocket-x': '/og-bubble.jpg',
+        'skyline-crash': '/og-skyline.jpg',
+      };
+      syncClientSeo({
+        title: `${activeGame.name} on SW88 — Live Mobile Gaming`,
+        description: activeGame.description,
+        path: `/play/${activeGame.id}`,
+        imagePath: ogImageMap[activeGame.id] || '/og-preview.png',
+      });
+    } else if (portalTab === 'wallet') {
+      syncClientSeo({
+        title: 'SW88 Wallet — Instant Deposits, Withdrawals & Transfers',
+        description: 'Manage your unified SW88 wallet balance, QR deposits, withdrawals, and instant transfers.',
+        path: '/wallet',
+        imagePath: '/og-preview.png',
+      });
+    } else {
+      syncClientSeo({
+        title: 'SW88 — Live Royale Cards, Crash & Arcade Gaming',
+        description:
+          'Play 3 Patti Royale, Bubble Rocket X, and Skyline Crash on SW88 with instant centralized wallet & standalone mobile app.',
+        path: '/',
+        imagePath: '/og-preview.png',
+      });
+    }
+  }, [activeGame, portalTab]);
 
   const handleLogout = async () => {
     try {
@@ -211,10 +250,6 @@ export default function App() {
   };
 
   const renderContent = () => {
-    if (downloadRoute) {
-      return <DownloadPage onOpenApp={navigateHomeFromDownload} />;
-    }
-
     if (booting) {
       return (
         <div className="min-h-dvh bg-[#0B0D11] text-[#F5F7FA] flex flex-col items-center justify-center gap-3 px-4 text-center">
@@ -262,6 +297,11 @@ export default function App() {
         setActiveGame(null);
         refreshWallet();
       };
+
+      // Update #3: On mobile devices, game-playing is accessible ONLY through the installed SW88 app
+      if (isMobileBrowserRestricted) {
+        return <MobileGameRestrictionModal asPage game={activeGame} onClose={exitGame} />;
+      }
 
       if (activeGame.id === '3-patti-royale') {
         return (
@@ -325,7 +365,8 @@ export default function App() {
   return (
     <>
       {renderContent()}
-      <OfflineIndicator />
+      <MobileInstallPrompt />
+      <OfflineIndicator activeGame={activeGame} />
     </>
   );
 }

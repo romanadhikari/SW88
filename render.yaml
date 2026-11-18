@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: sw88-backend
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build:server
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    disk:
+      name: sw88-data
+      mountPath: /var/data
+      sizeGB: 2
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SW88_DATA_DIR
+        value: /var/data
+      - key: SW88_ADMIN_USERNAME
+        value: sw88admin
+      - key: SW88_ADMIN_PASSWORD
+        sync: false
+      - key: SW88_SESSION_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: APP_URL
+        sync: false

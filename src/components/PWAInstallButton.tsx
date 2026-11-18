@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import {
-  Check,
   CheckCircle2,
-  Copy,
   Download,
   ExternalLink,
   Loader2,
+  MoreVertical,
+  RotateCcw,
   Share,
   Smartphone,
   X,
 } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
-import { copyToClipboard } from '../lib/api';
 
 export function PWAInstallButton({
   compact = false,
@@ -23,51 +22,30 @@ export function PWAInstallButton({
   variant?: 'button' | 'card';
 }) {
   const {
-    isInstalled,
+    isStandalone,
+    isAppInstalledOnDevice,
+    justInstalled,
     isIos,
-    isEmbeddedIframe,
+    isPrompting,
     canDirectInstall,
-    appInfo,
-    setupPhase,
-    specialDownloadUrl,
-    triggerAutoSetup,
+    promptInstall,
+    markManualInstalled,
+    clearInstalledMarker,
   } = usePWAInstall();
 
-  const [showIosSheet, setShowIosSheet] = useState(false);
-  const [showWebViewNotice, setShowWebViewNotice] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-
-  const hasApk = Boolean(appInfo?.hasApk && appInfo?.apkDownloadUrl);
+  const [showModal, setShowModal] = useState(false);
 
   const handleClick = async () => {
-    if (isInstalled) return;
-    const outcome = await triggerAutoSetup();
-    if (outcome === 'ios_sheet') {
-      setShowIosSheet(true);
-    } else if (outcome === 'webview_escape' || outcome === 'unsupported') {
-      setShowWebViewNotice(true);
+    if (isStandalone) return;
+    if (isAppInstalledOnDevice) {
+      setShowModal(true);
+      return;
+    }
+    const result = await promptInstall();
+    if (result === 'accepted' || result === 'ios' || result === 'manual' || result === 'dismissed') {
+      setShowModal(true);
     }
   };
-
-  const handleCopyDownloadLink = async () => {
-    const ok = await copyToClipboard(specialDownloadUrl);
-    if (ok) {
-      setCopiedLink(true);
-      window.setTimeout(() => setCopiedLink(false), 2200);
-    }
-  };
-
-  const isWorking =
-    setupPhase === 'preparing' || setupPhase === 'prompting' || setupPhase === 'downloading';
-
-  const cardButtonLabel = (() => {
-    if (setupPhase === 'downloading') return 'Downloading SW88.apk...';
-    if (setupPhase === 'preparing') return 'Setting Up Installer...';
-    if (setupPhase === 'prompting') return 'Confirm Setup...';
-    if (hasApk) return 'Download & Auto-Setup APK';
-    if (canDirectInstall) return 'Install SW88 App Now';
-    return 'Download & Auto-Setup App';
-  })();
 
   if (variant === 'card') {
     return (
@@ -82,79 +60,67 @@ export function PWAInstallButton({
                 SW88 Mobile App
               </div>
               <p className="text-xs text-[#9CA3AF] mt-0.5 leading-relaxed">
-                {isInstalled
+                {isStandalone
                   ? 'You are running the installed standalone SW88 app.'
-                  : hasApk
-                    ? `Direct Android APK v${appInfo?.version || '1.0.0'} ready for automatic download & setup.`
-                    : 'One-tap automatic setup on Android, iPhone, or Desktop for full-screen mobile gameplay.'}
+                  : isAppInstalledOnDevice
+                    ? 'SW88 is installed on your device. Launch from your Home Screen app icon for full-screen play.'
+                    : 'Download & install SW88 on your Android or iPhone home screen for full-screen mobile gameplay.'}
               </p>
             </div>
           </div>
 
-          {isInstalled ? (
+          {isStandalone ? (
             <div className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-bold text-xs sm:text-sm px-4">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>SW88 APP INSTALLED</span>
             </div>
+          ) : isAppInstalledOnDevice ? (
+            <button
+              type="button"
+              onClick={handleClick}
+              className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-400 to-emerald-500 text-[#07110B] font-extrabold text-sm hover:brightness-105 active:scale-[0.98] transition cursor-pointer px-4"
+            >
+              <ExternalLink className="w-4 h-4 shrink-0" />
+              <span>OPEN FROM SW88 APP</span>
+            </button>
           ) : (
             <button
               type="button"
-              disabled={isWorking}
               onClick={handleClick}
-              className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl border border-[#E6B84F]/40 bg-gradient-to-r from-[#E6B84F] to-[#D49B2A] text-[#0B0D11] font-extrabold text-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-75 transition cursor-pointer px-4"
+              disabled={isPrompting}
+              className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 rounded-xl border border-[#E6B84F]/40 bg-gradient-to-r from-[#E6B84F] to-[#D49B2A] text-[#0B0D11] font-extrabold text-sm hover:brightness-105 active:scale-[0.98] disabled:opacity-70 transition cursor-pointer px-4"
             >
-              {isWorking ? (
+              {isPrompting ? (
                 <Loader2 className="w-4 h-4 animate-spin shrink-0" />
               ) : (
                 <Download className="w-4 h-4 shrink-0" />
               )}
-              <span>{cardButtonLabel}</span>
+              <span>
+                {isPrompting
+                  ? 'Installing SW88 App...'
+                  : canDirectInstall
+                    ? 'Install SW88 App Now'
+                    : 'Download SW88 Mobile App'}
+              </span>
             </button>
           )}
-
-          {/* Special Download Link Bar */}
-          <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <a
-              href="/download"
-              className="text-[#9CA3AF] hover:text-[#E6B84F] inline-flex items-center gap-1 truncate max-w-full"
-            >
-              <span>Download page:</span>
-              <span className="font-mono-nums text-[#F5F7FA] underline decoration-white/20">/download</span>
-            </a>
-            <button
-              type="button"
-              onClick={handleCopyDownloadLink}
-              className="min-h-[34px] px-2.5 rounded-lg bg-[#0B0D11] border border-white/15 hover:border-[#E6B84F]/60 text-xs font-semibold text-[#F5F7FA] inline-flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Link Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-[#E6B84F]" />
-                  <span>Copy Download Link</span>
-                </>
-              )}
-            </button>
-          </div>
         </div>
 
-        {showIosSheet && <IosInstallModal onClose={() => setShowIosSheet(false)} />}
-        {showWebViewNotice && (
-          <DirectLinkModal
-            specialDownloadUrl={specialDownloadUrl}
-            isEmbeddedIframe={isEmbeddedIframe}
+        {showModal && (
+          <InstallGuideModal
             isIos={isIos}
-            onClose={() => setShowWebViewNotice(false)}
+            isInstalled={isAppInstalledOnDevice || justInstalled}
+            justInstalled={justInstalled}
+            onMarkInstalled={markManualInstalled}
+            onResetInstall={clearInstalledMarker}
+            onClose={() => setShowModal(false)}
           />
         )}
       </>
     );
   }
 
-  if (isInstalled) {
+  if (isStandalone) {
     return (
       <div
         className={`inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-semibold ${
@@ -168,203 +134,254 @@ export function PWAInstallButton({
     );
   }
 
-  return (
-    <>
-      <div className={`inline-flex items-center gap-1.5 ${fullWidth ? 'w-full' : ''}`}>
+  if (isAppInstalledOnDevice) {
+    return (
+      <>
         <button
           type="button"
-          disabled={isWorking}
           onClick={handleClick}
-          className={`inline-flex items-center justify-center gap-2 rounded-xl border border-[#E6B84F]/40 bg-gradient-to-r from-[#E6B84F] to-[#D49B2A] text-[#0B0D11] font-bold tracking-tight hover:brightness-105 active:scale-[0.98] disabled:opacity-75 transition cursor-pointer whitespace-nowrap shrink-0 ${
-            compact
-              ? 'min-h-[40px] sm:min-h-[44px] px-3 sm:px-3.5 py-2 text-xs'
-              : 'min-h-[46px] px-4 py-2.5 text-sm'
-          } ${fullWidth ? 'flex-1 min-w-0' : ''}`}
+          className={`inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-gradient-to-r from-emerald-400 to-emerald-500 text-[#07110B] font-extrabold tracking-tight hover:brightness-105 active:scale-[0.98] transition cursor-pointer whitespace-nowrap ${
+            compact ? 'min-h-[40px] sm:min-h-[44px] px-3 sm:px-3.5 py-2 text-xs' : 'min-h-[46px] px-4 py-2.5 text-sm'
+          } ${fullWidth ? 'w-full' : ''}`}
         >
-          {isWorking ? (
-            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-          ) : (
-            <Download className="w-4 h-4 shrink-0" />
-          )}
+          <ExternalLink className="w-4 h-4 shrink-0" />
           {compact ? (
             <>
-              <span className="sm:hidden">
-                {setupPhase === 'preparing' ? 'Setting up...' : hasApk ? 'Get APK' : 'Install App'}
-              </span>
-              <span className="hidden sm:inline">
-                {setupPhase === 'preparing'
-                  ? 'SETTING UP...'
-                  : hasApk
-                    ? 'DOWNLOAD SW88 APK'
-                    : 'DOWNLOAD SW88 APP'}
-              </span>
+              <span className="sm:hidden">Open App</span>
+              <span className="hidden sm:inline">OPEN FROM SW88 APP</span>
             </>
           ) : (
-            <span className="truncate">
-              {setupPhase === 'downloading'
-                ? 'DOWNLOADING APK...'
-                : setupPhase === 'preparing'
-                  ? 'SETTING UP...'
-                  : setupPhase === 'prompting'
-                    ? 'CONFIRM SETUP...'
-                    : hasApk
-                      ? 'DOWNLOAD SW88 APK'
-                      : canDirectInstall
-                        ? 'INSTALL SW88 APP'
-                        : 'DOWNLOAD SW88 APP'}
+            <span>OPEN FROM SW88 APP</span>
+          )}
+        </button>
+
+        {showModal && (
+          <InstallGuideModal
+            isIos={isIos}
+            isInstalled={true}
+            justInstalled={justInstalled}
+            onMarkInstalled={markManualInstalled}
+            onResetInstall={clearInstalledMarker}
+            onClose={() => setShowModal(false)}
+          />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPrompting}
+        className={`inline-flex items-center justify-center gap-2 rounded-xl border border-[#E6B84F]/40 bg-gradient-to-r from-[#E6B84F] to-[#D49B2A] text-[#0B0D11] font-bold tracking-tight hover:brightness-105 active:scale-[0.98] disabled:opacity-70 transition cursor-pointer whitespace-nowrap ${
+          compact ? 'min-h-[40px] sm:min-h-[44px] px-3 sm:px-3.5 py-2 text-xs' : 'min-h-[46px] px-4 py-2.5 text-sm'
+        } ${fullWidth ? 'w-full' : ''}`}
+      >
+        {isPrompting ? (
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+        ) : (
+          <Download className="w-4 h-4 shrink-0" />
+        )}
+        {compact ? (
+          <>
+            <span className="sm:hidden">{isPrompting ? 'Installing...' : 'Install App'}</span>
+            <span className="hidden sm:inline">
+              {isPrompting ? 'INSTALLING...' : 'DOWNLOAD SW88 APP'}
             </span>
-          )}
-        </button>
+          </>
+        ) : (
+          <span>{isPrompting ? 'INSTALLING SW88 APP...' : 'DOWNLOAD SW88 APP'}</span>
+        )}
+      </button>
 
-        <button
-          type="button"
-          onClick={handleCopyDownloadLink}
-          title="Copy special /download link"
-          aria-label="Copy special app download link"
-          className={`inline-flex items-center justify-center rounded-xl border border-white/15 bg-[#14171F] hover:border-[#E6B84F]/60 text-[#F5F7FA] cursor-pointer shrink-0 ${
-            compact ? 'min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-2.5' : 'min-h-[46px] min-w-[46px] px-3'
-          }`}
-        >
-          {copiedLink ? (
-            <Check className="w-4 h-4 text-emerald-400" />
-          ) : (
-            <Copy className="w-4 h-4 text-[#E6B84F]" />
-          )}
-        </button>
-      </div>
-
-      {showIosSheet && <IosInstallModal onClose={() => setShowIosSheet(false)} />}
-      {showWebViewNotice && (
-        <DirectLinkModal
-          specialDownloadUrl={specialDownloadUrl}
-          isEmbeddedIframe={isEmbeddedIframe}
+      {showModal && (
+        <InstallGuideModal
           isIos={isIos}
-          onClose={() => setShowWebViewNotice(false)}
+          isInstalled={isAppInstalledOnDevice || justInstalled}
+          justInstalled={justInstalled}
+          onMarkInstalled={markManualInstalled}
+          onResetInstall={clearInstalledMarker}
+          onClose={() => setShowModal(false)}
         />
       )}
     </>
   );
 }
 
-function IosInstallModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-[#14171F] border border-white/10 p-5 sm:p-6 shadow-2xl space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-[#F5F7FA]">Add SW88 on iPhone / iPad</h3>
-            <p className="text-sm text-[#9CA3AF] mt-1">
-              Apple Safari adds apps to your home screen via the Share button.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg text-[#9CA3AF] hover:text-white hover:bg-white/5 cursor-pointer"
-            aria-label="Close install instructions"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <ol className="space-y-3 text-sm text-[#D1D5DB] bg-[#0B0D11] rounded-xl p-4 border border-white/10">
-          <li className="flex items-center gap-2.5">
-            <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
-              1
-            </span>
-            <span>
-              Tap the <Share className="inline w-4 h-4 mx-0.5 text-[#E6B84F]" /> Share icon in Safari.
-            </span>
-          </li>
-          <li className="flex items-center gap-2.5">
-            <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
-              2
-            </span>
-            <span>Tap &ldquo;Add to Home Screen&rdquo;, then tap &ldquo;Add&rdquo;.</span>
-          </li>
-        </ol>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full min-h-[44px] rounded-xl bg-[#E6B84F] text-[#0B0D11] font-bold text-sm hover:brightness-105 cursor-pointer"
-        >
-          Done
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DirectLinkModal({
-  specialDownloadUrl,
-  isEmbeddedIframe,
+function InstallGuideModal({
   isIos,
+  isInstalled,
+  justInstalled,
+  onMarkInstalled,
+  onResetInstall,
   onClose,
 }: {
-  specialDownloadUrl: string;
-  isEmbeddedIframe: boolean;
   isIos: boolean;
+  isInstalled: boolean;
+  justInstalled: boolean;
+  onMarkInstalled: () => void;
+  onResetInstall: () => void;
   onClose: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const { openInInstalledApp, appHandoffState } = usePWAInstall();
+  const [launchedNotice, setLaunchedNotice] = useState(false);
 
-  const handleCopy = async () => {
-    const ok = await copyToClipboard(specialDownloadUrl);
-    if (ok) {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    }
+  const handleOpenApp = () => {
+    setLaunchedNotice(true);
+    openInInstalledApp();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-[#14171F] border border-white/10 p-5 sm:p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-[75] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl bg-[#14171F] border border-white/15 p-5 sm:p-6 shadow-2xl space-y-4">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-[#F5F7FA]">Direct SW88 Installer Link</h3>
-            <p className="text-sm text-[#9CA3AF] mt-1">
-              {isEmbeddedIframe
-                ? 'Open the dedicated installer page in a full browser window to run automatic setup.'
-                : isIos
-                  ? 'Open this link in Safari on iPhone or Chrome on Android for direct app installation.'
-                  : 'Open the dedicated download page directly in Chrome or Edge to launch automatic setup.'}
-            </p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/pwa-192x192.png"
+              alt="SW88"
+              className="w-11 h-11 rounded-xl border border-[#E6B84F]/40 shrink-0"
+            />
+            <div>
+              <h3 className="text-lg font-bold text-[#F5F7FA]">
+                {isInstalled ? 'SW88 Mobile App Ready' : 'Install SW88 Mobile App'}
+              </h3>
+              <p className="text-xs text-[#9CA3AF] mt-0.5">
+                {isInstalled
+                  ? 'Open SW88 directly from your phone Home Screen icon.'
+                  : 'Add SW88 directly to your phone home screen for instant full-screen access.'}
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="p-2 rounded-lg text-[#9CA3AF] hover:text-white hover:bg-white/5 cursor-pointer"
-            aria-label="Close download link modal"
+            aria-label="Close install dialog"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="rounded-xl bg-[#0B0D11] border border-white/10 p-3 font-mono-nums text-xs text-[#D1D5DB] break-all">
-          {specialDownloadUrl}
-        </div>
+        {isInstalled ? (
+          <div className="space-y-3">
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/35 p-4 space-y-2 text-xs sm:text-sm text-emerald-200">
+              <div className="flex items-center gap-2 font-bold text-emerald-300">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>
+                  {appHandoffState === 'opened'
+                    ? 'Switched to SW88 App! You can close this browser tab.'
+                    : justInstalled
+                      ? 'SW88 installed successfully!'
+                      : 'SW88 is detected as installed on this device.'}
+                </span>
+              </div>
+              <p className="text-emerald-100/80 leading-relaxed">
+                Tap the <strong className="text-white">SW88</strong> icon on your mobile Home Screen or App Drawer to open as a standalone mobile app.
+              </p>
+            </div>
 
-        <div className="flex flex-col sm:flex-row gap-2.5">
-          <a
-            href={`${specialDownloadUrl}?auto=1`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onClose}
-            className="flex-1 min-h-[44px] px-4 rounded-xl bg-gradient-to-r from-[#E6B84F] to-[#D49B2A] text-[#0B0D11] font-extrabold text-sm inline-flex items-center justify-center gap-2"
-          >
-            <ExternalLink className="w-4 h-4 shrink-0" />
-            <span>Open Installer</span>
-          </a>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="min-h-[44px] px-4 rounded-xl border border-white/15 bg-[#0B0D11] text-sm font-bold text-[#F5F7FA] inline-flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-[#E6B84F]" />}
-            <span>{copied ? 'Copied' : 'Copy Link'}</span>
-          </button>
-        </div>
+            {(launchedNotice || appHandoffState === 'manual_switch') && (
+              <div className="rounded-xl bg-[#E6B84F]/10 border border-[#E6B84F]/35 px-3.5 py-2.5 text-xs text-[#F3D27A] leading-relaxed">
+                Switch to your phone&apos;s Home Screen and tap the <strong className="text-white">SW88</strong> icon to open the standalone mobile app.
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleOpenApp}
+              disabled={appHandoffState === 'redirecting'}
+              className="w-full min-h-[46px] rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 text-[#07110B] font-extrabold text-sm inline-flex items-center justify-center gap-2 hover:brightness-105 disabled:opacity-75 cursor-pointer"
+            >
+              {appHandoffState === 'redirecting' ? (
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              ) : (
+                <ExternalLink className="w-4 h-4 shrink-0" />
+              )}
+              <span>{appHandoffState === 'redirecting' ? 'OPENING SW88 APP...' : 'OPEN IN SW88 APP'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setLaunchedNotice(false);
+                onResetInstall();
+              }}
+              className="w-full py-2 text-xs text-[#9CA3AF] hover:text-[#E6B84F] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Show 3-step install instructions again</span>
+            </button>
+          </div>
+        ) : (
+          <>
+            {isIos ? (
+              <ol className="space-y-3 text-sm text-[#D1D5DB] bg-[#0B0D11] rounded-xl p-4 border border-white/10">
+                <li className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
+                    1
+                  </span>
+                  <span>
+                    Tap the <Share className="inline w-4 h-4 mx-0.5 text-[#E6B84F]" /> Share icon in Safari’s bottom or top bar.
+                  </span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
+                    2
+                  </span>
+                  <span>Scroll down and select &ldquo;Add to Home Screen&rdquo;.</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
+                    3
+                  </span>
+                  <span>Confirm to install and launch SW88 as a standalone mobile app.</span>
+                </li>
+              </ol>
+            ) : (
+              <ol className="space-y-3 text-sm text-[#D1D5DB] bg-[#0B0D11] rounded-xl p-4 border border-white/10">
+                <li className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
+                    1
+                  </span>
+                  <span>
+                    Open your mobile browser menu (<MoreVertical className="inline w-3.5 h-3.5 text-[#E6B84F]" /> three dots or address bar install icon).
+                  </span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
+                    2
+                  </span>
+                  <span>Tap &ldquo;Install App&rdquo; or &ldquo;Add to Home Screen&rdquo;.</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-[#E6B84F]/20 text-[#E6B84F] font-bold flex items-center justify-center text-xs shrink-0">
+                    3
+                  </span>
+                  <span>Confirm to install and launch SW88 as a standalone mobile app.</span>
+                </li>
+              </ol>
+            )}
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={onMarkInstalled}
+                className="w-full min-h-[44px] rounded-xl bg-[#E6B84F] text-[#0B0D11] font-extrabold text-sm hover:brightness-105 cursor-pointer"
+              >
+                I Have Installed — Open from SW88 App
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full min-h-[40px] rounded-xl bg-white/5 border border-white/10 text-[#D1D5DB] font-semibold text-xs hover:bg-white/10 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

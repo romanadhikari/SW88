@@ -3,35 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>SW88 — Gaming Platform</title>
-    <meta name="description" content="SW88 — Premier Gaming Platform with Centralized Wallet, Instant Transfers, and Live Games" />
-    <meta property="og:title" content="SW88 — Gaming Platform" />
-    <meta property="og:description" content="SW88 — Premier Gaming Platform with Centralized Wallet, Instant Transfers, and Live Games" />
+    <!-- SW88_OG_START -->
+    <title>SW88 — Live Royale Cards, Crash &amp; Arcade Gaming</title>
+    <meta name="description" content="Play 3 Patti Royale, Bubble Rocket X, and Skyline Crash on SW88 with instant centralized wallet &amp; standalone mobile app." />
+    <meta name="application-name" content="SW88" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SW88" />
+    <meta property="og:title" content="SW88 — Live Royale Cards, Crash &amp; Arcade Gaming" />
+    <meta property="og:description" content="Play 3 Patti Royale, Bubble Rocket X, and Skyline Crash on SW88 with instant centralized wallet &amp; standalone mobile app." />
+    <meta property="og:image" content="/og-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SW88 — Live Royale Cards, Crash &amp; Arcade Gaming" />
+    <meta name="twitter:description" content="Play 3 Patti Royale, Bubble Rocket X, and Skyline Crash on SW88 with instant centralized wallet &amp; standalone mobile app." />
+    <meta name="twitter:image" content="/og-preview.png" />
+    <!-- SW88_OG_END -->
     <meta name="theme-color" content="#0B0D11" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SW88" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+Devanagari:wght@600;800&family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;700;800&display=swap" rel="stylesheet" />
     <script>
-      window.__sw88DeferredPrompt = null;
-      window.__sw88Installed = false;
-      window.addEventListener('beforeinstallprompt', function (e) {
-        e.preventDefault();
-        window.__sw88DeferredPrompt = e;
-        window.dispatchEvent(new CustomEvent('sw88:install-prompt-ready'));
-      });
-      window.addEventListener('appinstalled', function () {
-        window.__sw88Installed = true;
-        window.__sw88DeferredPrompt = null;
-        window.dispatchEvent(new CustomEvent('sw88:app-installed'));
-      });
+      (function () {
+        window.__sw88InstallPrompt = null;
+        window.__sw88AppInstalled = false;
+        window.addEventListener('beforeinstallprompt', function (e) {
+          e.preventDefault();
+          window.__sw88InstallPrompt = e;
+          window.dispatchEvent(new CustomEvent('sw88:pwa-prompt-ready'));
+        });
+        window.addEventListener('appinstalled', function () {
+          window.__sw88AppInstalled = true;
+          window.__sw88InstallPrompt = null;
+          try {
+            window.localStorage.setItem('sw88_pwa_installed', '1');
+          } catch (_) {}
+          window.dispatchEvent(new CustomEvent('sw88:pwa-installed'));
+        });
+      })();
     </script>
   </head>
   <body class="bg-[#0B0D11] text-[#F5F7FA] antialiased selection:bg-[#E6B84F]/30 selection:text-[#F5F7FA]">

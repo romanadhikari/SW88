@@ -18,7 +18,9 @@ import {
   Play,
   QrCode,
   Send,
+  Share2,
   Shield,
+  Smartphone,
   TrendingUp,
   Upload,
   User as UserIcon,
@@ -29,7 +31,9 @@ import {
 import thumb3Patti from '../assets/images/sw88_thumb_3patti_1794976007848.jpg';
 import thumbBubble from '../assets/images/sw88_thumb_bubble_1794976008608.jpg';
 import thumbSkyline from '../assets/images/sw88_thumb_skyline_1794976008575.jpg';
-import { apiFetch, copyToClipboard, formatNpr, formatNstDateShort, formatNstDateTime } from '../lib/api';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { apiFetch, apiUrl, copyToClipboard, formatNpr, formatNstDateShort, formatNstDateTime } from '../lib/api';
+import { buildShareUrl, sharePlatformLink } from '../lib/seo';
 import type {
   DepositRecord,
   GameInfo,
@@ -42,6 +46,7 @@ import type {
 } from '../types';
 import { BrandMark } from './BrandMark';
 import { LegalModal } from './LegalModal';
+import { MobileGameRestrictionModal } from './MobileGameRestrictionModal';
 import { PWAInstallButton } from './PWAInstallButton';
 
 export type UserTab = 'home' | 'wallet' | 'earn' | 'history' | 'profile';
@@ -98,9 +103,12 @@ export function UserPortal({
   onNotificationsRefresh,
   onLogout,
 }: UserPortalProps) {
+  const { isMobileBrowserRestricted, isAppInstalledOnDevice } = usePWAInstall();
   const [notifOpen, setNotifOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
+  const [restrictedGame, setRestrictedGame] = useState<GameInfo | null>(null);
+  const [sharedGameId, setSharedGameId] = useState<string | null>(null);
 
   // Wallet states
   const [walletMode, setWalletMode] = useState<'deposit' | 'withdraw'>('deposit');
@@ -866,11 +874,46 @@ export function UserPortal({
                 <span className="text-xs text-[#9CA3AF]">Real-time unified wallet · Fair RNG</span>
               </div>
 
+              {isMobileBrowserRestricted && (
+                <div className="rounded-2xl bg-gradient-to-r from-[#1A1610] via-[#171A23] to-[#131720] border border-[#E6B84F]/35 px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Smartphone className="w-4 h-4 text-[#E6B84F] shrink-0" />
+                    <p className="text-xs text-[#E5E7EB] leading-snug">
+                      <strong className="text-[#E6B84F]">Mobile App Mode:</strong>{' '}
+                      {isAppInstalledOnDevice
+                        ? 'Open the installed SW88 app from your Home Screen to play games.'
+                        : 'Install the SW88 mobile app to play live games. Wallet & transfers remain available here.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {games.map((g) => {
                   const thumbSrc = GAME_THUMBNAILS[g.id] || g.thumbnail;
                   const broken = brokenThumbs[g.id];
                   const disabled = !g.enabled || user.status !== 'ACTIVE' || Boolean(maintenance?.enabled);
+                  const handlePlayTap = () => {
+                    if (isMobileBrowserRestricted) {
+                      setRestrictedGame(g);
+                      return;
+                    }
+                    onLaunchGame(g);
+                  };
+                  const handleShareGame = async () => {
+                    const url = buildShareUrl({ gameId: g.id });
+                    const outcome = await sharePlatformLink({
+                      title: `${g.name} on SW88`,
+                      text: g.description,
+                      url,
+                    });
+                    if (outcome === 'shared' || outcome === 'copied') {
+                      setSharedGameId(g.id);
+                      window.setTimeout(() => {
+                        setSharedGameId((prev) => (prev === g.id ? null : prev));
+                      }, 2200);
+                    }
+                  };
                   return (
                     <article
                       key={g.id}
@@ -888,6 +931,12 @@ export function UserPortal({
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[#E6B84F]">
                             <Gamepad2 className="w-10 h-10" />
+                          </div>
+                        )}
+                        {isMobileBrowserRestricted && g.enabled && (
+                          <div className="absolute top-2.5 right-2.5 rounded-lg bg-[#0B0D11]/90 border border-[#E6B84F]/45 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#E6B84F] inline-flex items-center gap-1 backdrop-blur-sm">
+                            <Smartphone className="w-3 h-3" />
+                            <span>App Only</span>
                           </div>
                         )}
                         {!g.enabled && (
@@ -920,21 +969,51 @@ export function UserPortal({
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            disabled={disabled}
-                            onClick={() => onLaunchGame(g)}
-                            className="w-full min-h-[46px] rounded-xl bg-gradient-to-r from-[#E6B84F] to-[#D49B2A] text-[#0B0D11] font-extrabold text-sm inline-flex items-center justify-center gap-2 hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition"
-                          >
-                            <Play className="w-4 h-4 fill-current" />
-                            <span>
-                              {maintenance?.enabled
-                                ? 'Paused for Maintenance'
-                                : g.enabled
-                                  ? 'Play Now'
-                                  : 'Unavailable'}
-                            </span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              onClick={handlePlayTap}
+                              className="flex-1 min-h-[46px] rounded-xl bg-gradient-to-r from-[#E6B84F] to-[#D49B2A] text-[#0B0D11] font-extrabold text-sm inline-flex items-center justify-center gap-2 hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition px-3"
+                            >
+                              {isMobileBrowserRestricted ? (
+                                <Smartphone className="w-4 h-4 shrink-0" />
+                              ) : (
+                                <Play className="w-4 h-4 fill-current shrink-0" />
+                              )}
+                              <span>
+                                {maintenance?.enabled
+                                  ? 'Paused for Maintenance'
+                                  : !g.enabled
+                                    ? 'Unavailable'
+                                    : isMobileBrowserRestricted
+                                      ? isAppInstalledOnDevice
+                                        ? 'Open in App to Play'
+                                        : 'Install App to Play'
+                                      : 'Play Now'}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={handleShareGame}
+                              className="min-h-[46px] px-3 rounded-xl bg-[#0B0D11] border border-white/15 hover:border-[#E6B84F]/50 text-xs font-semibold text-[#E5E7EB] inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0 transition"
+                              title={`Share ${g.name} link`}
+                              aria-label={`Share ${g.name} link`}
+                            >
+                              {sharedGameId === g.id ? (
+                                <>
+                                  <Check className="w-4 h-4 text-emerald-400" />
+                                  <span className="text-emerald-300">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="w-4 h-4 text-[#E6B84F]" />
+                                  <span className="hidden sm:inline">Share</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </article>
@@ -1010,7 +1089,7 @@ export function UserPortal({
                     <div className="space-y-4">
                       <div className="rounded-xl bg-white p-4 max-w-[260px] mx-auto">
                         <img
-                          src={qrInfo.imageUrl}
+                          src={apiUrl(qrInfo.imageUrl)}
                           alt="SW88 Deposit QR"
                           referrerPolicy="no-referrer"
                           className="w-full h-auto object-contain"
@@ -2362,6 +2441,12 @@ export function UserPortal({
       )}
 
       <LegalModal open={legalOpen} onClose={() => setLegalOpen(false)} />
+      {restrictedGame && (
+        <MobileGameRestrictionModal
+          game={restrictedGame}
+          onClose={() => setRestrictedGame(null)}
+        />
+      )}
     </div>
   );
 }

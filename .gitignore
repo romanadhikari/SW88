@@ -1,7 +1,11 @@
 node_modules/
 build/
 dist/
+dev-dist/
 coverage/
+data/
+server.js
+server.js.map
 .DS_Store
 *.log
 .env*

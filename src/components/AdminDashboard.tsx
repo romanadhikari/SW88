@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import {
   apiFetch,
+  apiUrl,
   copyToClipboard,
   formatNpr,
   formatNstDateShort,
@@ -83,7 +84,7 @@ function AuthenticatedScreenshot({ depositId }: { depositId: string }) {
     const load = async () => {
       try {
         const token = getStoredToken();
-        const res = await fetch(`/api/admin/deposits/${encodeURIComponent(depositId)}/screenshot`, {
+        const res = await fetch(apiUrl(`/api/admin/deposits/${encodeURIComponent(depositId)}/screenshot`), {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!res.ok) {
@@ -1350,7 +1351,7 @@ export function AdminDashboard({ user, liveTickVersion, onUserUpdate, onLogout }
                   <div className="space-y-3">
                     <div className="rounded-xl bg-white p-4 max-w-[260px] mx-auto">
                       <img
-                        src={qrAdmin.imageUrl}
+                        src={apiUrl(qrAdmin.imageUrl)}
                         alt="Current Admin QR"
                         referrerPolicy="no-referrer"
                         className="w-full h-auto object-contain"

@@ -1,289 +1,327 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export interface AppDownloadInfo {
-  mode: 'pwa' | 'uploaded' | 'external';
-  hasApk: boolean;
-  apkDownloadUrl: string | null;
-  apkFilename: string | null;
-  apkSizeBytes: number;
-  externalUrl: string;
-  version: string;
-  updatedAt: string | null;
-}
-
-export type AutoSetupPhase =
-  | 'idle'
-  | 'preparing'
-  | 'prompting'
-  | 'ready_tap'
-  | 'downloading'
-  | 'installed'
-  | 'dismissed'
-  | 'iframe_redirect'
-  | 'ios_sheet'
-  | 'webview_escape'
-  | 'unsupported';
+export type AppHandoffState = 'idle' | 'redirecting' | 'opened' | 'manual_switch';
 
 declare global {
   interface Window {
-    __sw88DeferredPrompt?: BeforeInstallPromptEvent | null;
-    __sw88Installed?: boolean;
+    __sw88InstallPrompt?: BeforeInstallPromptEvent | null;
+    __sw88AppInstalled?: boolean;
   }
 }
 
-function detectEnvironment() {
-  if (typeof window === 'undefined') {
-    return {
-      isIos: false,
-      isAndroid: false,
-      isEmbeddedIframe: false,
-      isInAppBrowser: false,
-      isStandalone: false,
-    };
-  }
-  const ua = window.navigator.userAgent || '';
-  const isIos = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-  const isAndroid = /Android/i.test(ua);
-  const isInAppBrowser = /(FBAN|FBAV|Instagram|Line|MicroMessenger|WhatsApp|Telegram|Snapchat|wv\))/i.test(ua);
-  let isEmbeddedIframe = false;
-  try {
-    isEmbeddedIframe = window.self !== window.top;
-  } catch {
-    isEmbeddedIframe = true;
-  }
-  const isStandalone = Boolean(
+const INSTALLED_STORAGE_KEY = 'sw88_pwa_installed';
+const OPEN_ATTEMPT_SESSION_KEY = 'sw88_open_app_attempted';
+
+function detectStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
     window.matchMedia?.('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true ||
-      window.__sw88Installed
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true ||
+      document.referrer.startsWith('android-app://')
   );
-  return { isIos, isAndroid, isEmbeddedIframe, isInAppBrowser, isStandalone };
 }
 
-export function getSpecialDownloadUrl(): string {
-  if (typeof window === 'undefined') return '/download';
-  return `${window.location.origin}/download`;
+function detectIos(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent || '';
+  const isClassicIos = /iPad|iPhone|iPod/.test(ua) && !(window as Window & { MSStream?: unknown }).MSStream;
+  const isIpadOs = /Macintosh/.test(ua) && (window.navigator.maxTouchPoints || 0) > 1;
+  return isClassicIos || isIpadOs;
+}
+
+function detectAndroid(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Android/i.test(window.navigator.userAgent || '');
+}
+
+function detectMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent || '';
+  const mobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches && window.innerWidth < 1024;
+  return mobileUa || coarsePointer || window.innerWidth < 768;
+}
+
+function readInstalledMarker(): boolean {
+  try {
+    return window.localStorage.getItem(INSTALLED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeInstalledMarker(installed: boolean) {
+  try {
+    if (installed) {
+      window.localStorage.setItem(INSTALLED_STORAGE_KEY, '1');
+    } else {
+      window.localStorage.removeItem(INSTALLED_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
 }
 
 export function usePWAInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(() =>
-    typeof window !== 'undefined' ? window.__sw88DeferredPrompt || null : null
+    typeof window !== 'undefined' ? window.__sw88InstallPrompt || null : null
   );
-  const [env] = useState(() => detectEnvironment());
-  const [isInstalled, setIsInstalled] = useState(() => env.isStandalone);
-  const [swReady, setSwReady] = useState(false);
-  const [appInfo, setAppInfo] = useState<AppDownloadInfo | null>(null);
-  const [setupPhase, setSetupPhase] = useState<AutoSetupPhase>(() =>
-    env.isStandalone ? 'installed' : 'idle'
+  const [isStandalone, setIsStandalone] = useState<boolean>(() => detectStandalone());
+  const [justInstalled, setJustInstalled] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? Boolean(window.__sw88AppInstalled) : false
   );
+  const [hasInstalledMarker, setHasInstalledMarker] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? readInstalledMarker() : false
+  );
+  const [detectedRelatedApp, setDetectedRelatedApp] = useState<boolean>(false);
+  const [isIos, setIsIos] = useState<boolean>(() => detectIos());
+  const [isAndroid, setIsAndroid] = useState<boolean>(() => detectAndroid());
+  const [isMobile, setIsMobile] = useState<boolean>(() => detectMobile());
+  const [isPrompting, setIsPrompting] = useState<boolean>(false);
+  const [appHandoffState, setAppHandoffState] = useState<AppHandoffState>('idle');
 
-  const refreshAppInfo = useCallback(async () => {
-    try {
-      const res = await fetch('/api/app/download-info', { cache: 'no-store' });
-      if (res.ok) {
-        const data = (await res.json()) as AppDownloadInfo;
-        setAppInfo(data);
-      }
-    } catch {
-      // keep existing or offline fallback
-    }
-  }, []);
+  const handoffTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    refreshAppInfo();
-
-    const syncPrompt = () => {
-      if (window.__sw88DeferredPrompt) {
-        setDeferredPrompt(window.__sw88DeferredPrompt);
+    const syncEnvironment = () => {
+      const standalone = detectStandalone();
+      setIsStandalone(standalone);
+      setIsIos(detectIos());
+      setIsAndroid(detectAndroid());
+      setIsMobile(detectMobile());
+      if (standalone) {
+        writeInstalledMarker(true);
+        setHasInstalledMarker(true);
+        setAppHandoffState('idle');
       }
     };
+
+    const checkRelatedApps = () => {
+      const nav = window.navigator as Navigator & {
+        getInstalledRelatedApps?: () => Promise<Array<{ platform: string; url?: string }>>;
+      };
+      if (typeof nav.getInstalledRelatedApps === 'function') {
+        nav
+          .getInstalledRelatedApps()
+          .then((apps) => {
+            if (Array.isArray(apps) && apps.length > 0) {
+              setDetectedRelatedApp(true);
+              writeInstalledMarker(true);
+              setHasInstalledMarker(true);
+            }
+          })
+          .catch(() => {
+            // ignore
+          });
+      }
+    };
+
+    syncEnvironment();
+    checkRelatedApps();
+
+    if (window.__sw88InstallPrompt) {
+      setDeferredPrompt(window.__sw88InstallPrompt);
+      writeInstalledMarker(false);
+      setHasInstalledMarker(false);
+    }
+
+    if (window.__sw88AppInstalled) {
+      setJustInstalled(true);
+      setHasInstalledMarker(true);
+    }
+
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
-      const ev = e as BeforeInstallPromptEvent;
-      window.__sw88DeferredPrompt = ev;
-      setDeferredPrompt(ev);
+      const promptEv = e as BeforeInstallPromptEvent;
+      window.__sw88InstallPrompt = promptEv;
+      setDeferredPrompt(promptEv);
+      // Browser fired install prompt -> app is not currently installed
+      setDetectedRelatedApp(false);
+      writeInstalledMarker(false);
+      setHasInstalledMarker(false);
     };
+
+    const onEarlyPromptReady = () => {
+      if (window.__sw88InstallPrompt) {
+        setDeferredPrompt(window.__sw88InstallPrompt);
+        setDetectedRelatedApp(false);
+        writeInstalledMarker(false);
+        setHasInstalledMarker(false);
+      }
+    };
+
     const onInstalled = () => {
-      window.__sw88Installed = true;
-      window.__sw88DeferredPrompt = null;
-      setIsInstalled(true);
+      window.__sw88AppInstalled = true;
+      window.__sw88InstallPrompt = null;
       setDeferredPrompt(null);
-      setSetupPhase('installed');
+      setJustInstalled(true);
+      setDetectedRelatedApp(true);
+      setHasInstalledMarker(true);
+      writeInstalledMarker(true);
     };
 
-    window.addEventListener('sw88:install-prompt-ready', syncPrompt);
-    window.addEventListener('sw88:app-installed', onInstalled);
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    window.addEventListener('appinstalled', onInstalled);
+    const mql = window.matchMedia?.('(display-mode: standalone)');
+    const onDisplayModeChange = () => syncEnvironment();
+    const onFocus = () => {
+      syncEnvironment();
+      checkRelatedApps();
+    };
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready
-        .then(() => setSwReady(true))
-        .catch(() => {
-          // ignore
-        });
-    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('sw88:pwa-prompt-ready', onEarlyPromptReady);
+    window.addEventListener('appinstalled', onInstalled);
+    window.addEventListener('sw88:pwa-installed', onInstalled);
+    window.addEventListener('resize', syncEnvironment);
+    window.addEventListener('focus', onFocus);
+    mql?.addEventListener?.('change', onDisplayModeChange);
 
     return () => {
-      window.removeEventListener('sw88:install-prompt-ready', syncPrompt);
-      window.removeEventListener('sw88:app-installed', onInstalled);
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('sw88:pwa-prompt-ready', onEarlyPromptReady);
       window.removeEventListener('appinstalled', onInstalled);
+      window.removeEventListener('sw88:pwa-installed', onInstalled);
+      window.removeEventListener('resize', syncEnvironment);
+      window.removeEventListener('focus', onFocus);
+      mql?.removeEventListener?.('change', onDisplayModeChange);
+      if (handoffTimerRef.current) {
+        window.clearTimeout(handoffTimerRef.current);
+      }
     };
-  }, [refreshAppInfo]);
-
-  const openTopLevelDownload = useCallback(() => {
-    const targetUrl = `${window.location.origin}/download?auto=1`;
-    const a = document.createElement('a');
-    a.href = targetUrl;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
   }, []);
 
-  const triggerApkDownload = useCallback((url: string) => {
-    setSetupPhase('downloading');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'SW88-App.apk';
-    if (/^https?:\/\//i.test(url) && !url.startsWith(window.location.origin)) {
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-    }
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => {
-      setSetupPhase((prev) => (prev === 'downloading' ? 'idle' : prev));
-    }, 3500);
-  }, []);
-
-  const invokePromptNow = useCallback(async (promptEv: BeforeInstallPromptEvent): Promise<'accepted' | 'dismissed' | 'gesture_expired'> => {
-    setSetupPhase('prompting');
-    try {
-      await promptEv.prompt();
-      const choice = await promptEv.userChoice;
-      if (choice.outcome === 'accepted') {
-        window.__sw88DeferredPrompt = null;
-        window.__sw88Installed = true;
-        setDeferredPrompt(null);
-        setIsInstalled(true);
-        setSetupPhase('installed');
-        return 'accepted';
-      }
-      setSetupPhase('dismissed');
-      return 'dismissed';
-    } catch {
-      setSetupPhase('ready_tap');
-      return 'gesture_expired';
-    }
-  }, []);
-
-  const triggerAutoSetup = useCallback(async (): Promise<AutoSetupPhase> => {
-    if (isInstalled) {
-      setSetupPhase('installed');
-      return 'installed';
-    }
-
-    // 1. If Admin uploaded/linked a native Android .apk package, download it directly
-    if (appInfo?.hasApk && appInfo?.apkDownloadUrl) {
-      triggerApkDownload(appInfo.apkDownloadUrl);
-      return 'downloading';
-    }
-
-    // 2. Synchronous OS installer trigger when pre-boot prompt is captured
-    const immediatePrompt = window.__sw88DeferredPrompt || deferredPrompt;
-    if (immediatePrompt) {
-      const outcome = await invokePromptNow(immediatePrompt);
-      if (outcome === 'accepted') return 'installed';
-      if (outcome === 'dismissed') return 'dismissed';
-      return 'ready_tap';
-    }
-
-    // 3. Embedded preview / iframe: escape into top-level browser tab where OS install is permitted
-    if (env.isEmbeddedIframe) {
-      openTopLevelDownload();
-      setSetupPhase('iframe_redirect');
-      return 'iframe_redirect';
-    }
-
-    // 4. Restricted social/chat WebView (WhatsApp, Telegram, Facebook, Instagram)
-    if (env.isInAppBrowser) {
-      setSetupPhase('webview_escape');
-      return 'webview_escape';
-    }
-
-    // 5. iOS Safari requires Safari Share -> Add to Home Screen by Apple OS policy
-    if (env.isIos) {
-      setSetupPhase('ios_sheet');
-      return 'ios_sheet';
-    }
-
-    // 6. Wait briefly for Service Worker & beforeinstallprompt to finish initializing on first visit
-    setSetupPhase('preparing');
-    if ('serviceWorker' in navigator) {
+  const promptInstall = useCallback(async (): Promise<'accepted' | 'dismissed' | 'ios' | 'manual'> => {
+    const activePrompt = deferredPrompt || window.__sw88InstallPrompt || null;
+    if (activePrompt) {
+      setIsPrompting(true);
       try {
-        await Promise.race([
-          navigator.serviceWorker.ready,
-          new Promise((resolve) => setTimeout(resolve, 1200)),
-        ]);
-        setSwReady(true);
+        await activePrompt.prompt();
+        const choice = await activePrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          window.__sw88InstallPrompt = null;
+          window.__sw88AppInstalled = true;
+          setDeferredPrompt(null);
+          setJustInstalled(true);
+          setDetectedRelatedApp(true);
+          setHasInstalledMarker(true);
+          writeInstalledMarker(true);
+        }
+        return choice.outcome;
+      } finally {
+        setIsPrompting(false);
+      }
+    }
+    if (isIos) return 'ios';
+    return 'manual';
+  }, [deferredPrompt, isIos]);
+
+  const markManualInstalled = useCallback(() => {
+    window.__sw88AppInstalled = true;
+    setJustInstalled(true);
+    setHasInstalledMarker(true);
+    writeInstalledMarker(true);
+  }, []);
+
+  const clearInstalledMarker = useCallback(() => {
+    window.__sw88AppInstalled = false;
+    setJustInstalled(false);
+    setDetectedRelatedApp(false);
+    setHasInstalledMarker(false);
+    setAppHandoffState('idle');
+    writeInstalledMarker(false);
+  }, []);
+
+  const openInInstalledApp = useCallback(
+    (targetGameId?: string) => {
+      if (isStandalone) return;
+      if (handoffTimerRef.current) {
+        window.clearTimeout(handoffTimerRef.current);
+      }
+
+      setAppHandoffState('redirecting');
+
+      let leftBrowser = false;
+      const cleanupListeners = () => {
+        document.removeEventListener('visibilitychange', onVisibilityOrHide);
+        window.removeEventListener('pagehide', onVisibilityOrHide);
+        window.removeEventListener('blur', onVisibilityOrHide);
+      };
+
+      const onVisibilityOrHide = () => {
+        if (document.hidden || document.visibilityState === 'hidden') {
+          leftBrowser = true;
+          cleanupListeners();
+          if (handoffTimerRef.current) window.clearTimeout(handoffTimerRef.current);
+          setAppHandoffState('opened');
+          // Gracefully attempt to close the browser tab if allowed by browser
+          try {
+            window.close();
+          } catch {
+            // Browser prevented script close; UI transitions to "Opened in App" state
+          }
+        }
+      };
+
+      document.addEventListener('visibilitychange', onVisibilityOrHide);
+      window.addEventListener('pagehide', onVisibilityOrHide);
+      window.addEventListener('blur', onVisibilityOrHide);
+
+      // Build clean canonical app URL preserving optional game deep-link without forcing full-page proxy reload
+      const params = new URLSearchParams(window.location.search);
+      params.set('source', 'pwa');
+      params.set('open_app', '1');
+      if (targetGameId) {
+        params.set('game', targetGameId);
+      }
+
+      try {
+        window.sessionStorage.setItem(OPEN_ATTEMPT_SESSION_KEY, '1');
+        window.history.replaceState(null, '', `/?${params.toString()}`);
       } catch {
-        // ignore
+        // ignore history/storage errors
       }
+
+      handoffTimerRef.current = window.setTimeout(() => {
+        cleanupListeners();
+        if (!leftBrowser) {
+          setAppHandoffState('manual_switch');
+        }
+      }, 900);
+    },
+    [isStandalone]
+  );
+
+  const resetHandoffState = useCallback(() => {
+    if (handoffTimerRef.current) {
+      window.clearTimeout(handoffTimerRef.current);
     }
+    setAppHandoffState('idle');
+  }, []);
 
-    const deadline = Date.now() + 1800;
-    while (Date.now() < deadline) {
-      const latePrompt = window.__sw88DeferredPrompt;
-      if (latePrompt) {
-        setDeferredPrompt(latePrompt);
-        const outcome = await invokePromptNow(latePrompt);
-        if (outcome === 'accepted') return 'installed';
-        if (outcome === 'dismissed') return 'dismissed';
-        return 'ready_tap';
-      }
-      await new Promise((resolve) => setTimeout(resolve, 150));
-    }
-
-    setSetupPhase('unsupported');
-    return 'unsupported';
-  }, [
-    appInfo,
-    deferredPrompt,
-    env.isEmbeddedIframe,
-    env.isInAppBrowser,
-    env.isIos,
-    invokePromptNow,
-    isInstalled,
-    openTopLevelDownload,
-    triggerApkDownload,
-  ]);
-
-  const resetSetupPhase = useCallback(() => {
-    setSetupPhase(isInstalled ? 'installed' : 'idle');
-  }, [isInstalled]);
+  const isAppInstalledOnDevice =
+    isStandalone || justInstalled || detectedRelatedApp || hasInstalledMarker;
 
   return {
-    isInstalled,
-    isIos: env.isIos,
-    isAndroid: env.isAndroid,
-    isEmbeddedIframe: env.isEmbeddedIframe,
-    isInAppBrowser: env.isInAppBrowser,
-    swReady,
-    canDirectInstall: Boolean(deferredPrompt || (typeof window !== 'undefined' && window.__sw88DeferredPrompt)),
-    appInfo,
-    setupPhase,
-    specialDownloadUrl: getSpecialDownloadUrl(),
-    refreshAppInfo,
-    triggerAutoSetup,
-    openTopLevelDownload,
-    resetSetupPhase,
+    isStandalone,
+    isInstalled: isStandalone || justInstalled,
+    isAppInstalledOnDevice,
+    detectedRelatedApp,
+    justInstalled,
+    isIos,
+    isAndroid,
+    isMobile,
+    isMobileBrowserRestricted: isMobile && !isStandalone,
+    isPrompting,
+    canDirectInstall: Boolean(deferredPrompt),
+    appHandoffState,
+    promptInstall,
+    markManualInstalled,
+    clearInstalledMarker,
+    openInInstalledApp,
+    resetHandoffState,
   };
 }
